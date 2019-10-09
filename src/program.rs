@@ -3,13 +3,14 @@ extern crate gl;
 extern crate glm;
 
 use glfw::{Context,Key,Action};
-use crate::{ModelerState, Object, GLFWState};
+use crate::{ModelerState, GLFWState};
 use std::ffi::{CString};
 use std::f32;
 
 use crate::settings;
 use crate::shaders::{self};
 use crate::objects;
+use crate::lineobjects;
 
 pub fn setup_objects() -> ModelerState {
 
@@ -28,12 +29,16 @@ pub fn setup_objects() -> ModelerState {
     let cube = objects::create_cube_object(0.5);
     let sphere = objects::create_sphere_object(0.5, 5);
     let cone = objects::create_cone_object(0.5, 2.0, 15);
-    let cyllinder = objects::create_generalized_cyllinder_object(0.5, 2.0, 5, 5);
+    let cyllinder = objects::create_generalized_cyllinder_object(0.5, 2.0, 20, 5);
 
     ModelerState { objects: vec![cyllinder, cone, sphere, cube, triangle,],}
-} 
+}
 
 pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
+
+    let line_object : lineobjects::LineObject =
+	lineobjects::create_line_object(&modeler_state.objects[0].vertices,
+					&modeler_state.objects[0].indices);
     
     unsafe {
 	
@@ -44,7 +49,7 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 	gl::Enable(gl::CULL_FACE);
 	
 	gl::Viewport(0, 0, settings::WINDOW_WIDTH as i32, settings::WINDOW_HEIGHT as i32);
-	gl::ClearColor(0.3, 0.3, 0.5, 1.0);
+	gl::ClearColor(1.0, 1.0, 1.0, 1.0);
     }
 
     // Load shaders
@@ -61,6 +66,22 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
         gl::GetUniformLocation(shader_program.id,
                                CString::new("trans").unwrap().as_ptr())
     };
+
+    let displacement_location = unsafe {
+	gl::GetUniformLocation(shader_program.id,
+			       CString::new("displacement").unwrap().as_ptr())
+    };
+
+    let color_location = unsafe {
+	gl::GetUniformLocation(shader_program.id,
+			       CString::new("uni_color").unwrap().as_ptr())
+    };
+
+    let black_color = glm::vec4(0.0, 0.0, 0.0, 1.0);
+    let white_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
+
+    let no_translation = glm::vec4(0.0, 0.0, 0.0, 0.0);
+    let small_translation = glm::vec4(0.0, 0.0, -0.04, 0.0);
 
 	
     let mut count = 0;
@@ -84,20 +105,46 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 			      glm::vec3(0.0, 1.0, 0.0));
 
 	unsafe {
-	    gl::UniformMatrix4fv(transform_location,
-				 1, gl::FALSE, &trans[0][0]);
-	}
-	
-	unsafe {
 	    gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
 	}
-
+	
 	unsafe {
+	    gl::UniformMatrix4fv(transform_location,
+				 1, gl::FALSE, &trans[0][0]);
+	    gl::Uniform4fv(displacement_location,
+			   1, &no_translation[0]);
+	    gl::Uniform4fv(color_location,
+			   1, &black_color[0]);
+
+	    gl::LineWidth(4.0);
+	    gl::BindVertexArray(line_object.all_vao);
+	    gl::DrawElements(
+		gl::LINES,
+		line_object.all_indices.len() as gl::types::GLsizei,
+		gl::UNSIGNED_INT,
+		std::ptr::null());
+
+	    gl::Uniform4fv(displacement_location,
+			   1, &small_translation[0]);
+	    gl::Uniform4fv(color_location,
+			   1, &white_color[0]);
+	    
 	    gl::BindVertexArray(modeler_state.objects[0].vao);
 	    gl::DrawElements(
 		gl::TRIANGLES,
 		modeler_state.objects[0].indices.len() as gl::types::GLsizei,
+		gl::UNSIGNED_INT,
+		std::ptr::null());
+
+	    gl::Uniform4fv(color_location,
+			   1, &black_color[0]);
+	    gl::LineWidth(2.0);
+
+	    gl::BindVertexArray(line_object.vao);
+	    gl::DrawElements(
+		gl::LINES,
+		line_object.indices.len() as gl::types::GLsizei,
 		gl::UNSIGNED_INT,
 		std::ptr::null());
 	}

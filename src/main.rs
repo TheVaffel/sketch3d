@@ -7,6 +7,7 @@ mod program;
 mod settings;
 mod shaders;
 mod objects;
+mod lineobjects;
 
 pub struct Object {
     vao: gl::types::GLuint, 

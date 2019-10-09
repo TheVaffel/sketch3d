@@ -117,7 +117,7 @@ pub fn create_sphere_object(radius: f32,
     let mut indices : Vec<u32> =
 	vec![0; 6 * resolution * 2 * (resolution - 2) + 2 * 3 * 2 * resolution];
 
-    println!("Index vector: {:?}", indices);
+    // println!("Index vector: {:?}", indices);
     
     for i in 0..(resolution - 2) {
 	let ii :u32 = i as u32;
@@ -206,7 +206,6 @@ pub fn create_generalized_cyllinder_object(radius : f32,
 					   circ_resolution : usize,
 					   len_resolution : usize) -> Object {
     let icirc_resolution = circ_resolution as u32;
-    let ilen_resolution = len_resolution as u32;
     
     // The hemisphere at each end: 2 * resolution panes around its circumference,
     // resolution - 1 of those in height, and then 2 * resolution triangles to close it on top.
