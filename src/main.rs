@@ -8,6 +8,8 @@ mod settings;
 mod shaders;
 mod objects;
 mod lineobjects;
+mod splinedraw;
+mod cyllinder;
 
 pub struct Object {
     vao: gl::types::GLuint, 
@@ -49,6 +51,9 @@ fn init_glfw() -> GLFWState  {
     // Make the window's context current
     window.make_current();
     window.set_key_polling(true);
+    window.set_cursor_pos_polling(true);
+    window.set_mouse_button_polling(true);
+    window.set_cursor_enter_polling(true);
 
     
     GLFWState{window, events, glfw}
@@ -58,7 +63,7 @@ fn main() {
 
     let glfw_state = init_glfw();
     
-    let models = program::setup_objects();
+    let mut models = program::setup_objects();
     
     program::run_loop(glfw_state, models);
 }

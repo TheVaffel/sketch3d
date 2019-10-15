@@ -1,16 +1,32 @@
 extern crate glfw;
 extern crate gl;
 extern crate glm;
+extern crate num_traits;
 
 use glfw::{Context,Key,Action};
 use crate::{ModelerState, GLFWState};
 use std::ffi::{CString};
 use std::f32;
+use num_traits::identities::One;
 
 use crate::settings;
 use crate::shaders::{self};
 use crate::objects;
 use crate::lineobjects;
+use crate::splinedraw;
+use crate::cyllinder;
+
+pub struct MouseState {
+    pub pos: glm::Vec2,
+    pub button1_pressed: bool,
+    pub in_window: bool,
+}
+
+
+// What keys are pressed?
+pub struct KeyState {
+    pub enter: bool,
+}
 
 pub fn setup_objects() -> ModelerState {
 
@@ -29,16 +45,28 @@ pub fn setup_objects() -> ModelerState {
     let cube = objects::create_cube_object(0.5);
     let sphere = objects::create_sphere_object(0.5, 5);
     let cone = objects::create_cone_object(0.5, 2.0, 15);
-    let cyllinder = objects::create_generalized_cyllinder_object(0.5, 2.0, 20, 5);
+    // let cyllinder = cyllinder::create_generalized_cyllinder_object(0.5, 2.0, 20, 5);
 
-    ModelerState { objects: vec![cyllinder, cone, sphere, cube, triangle,],}
+    ModelerState { objects: vec![/*cyllinder, */ cone, sphere, cube, triangle,],}
 }
 
-pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
+pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 
-    let line_object : lineobjects::LineObject =
-	lineobjects::create_line_object(&modeler_state.objects[0].vertices,
-					&modeler_state.objects[0].indices);
+    let mut mouse_state = MouseState { pos: glm::vec2(0.0, 0.0),
+				       button1_pressed: false,
+				       in_window: true, };
+    let mut key_state = KeyState { enter: false, };
+
+    let mut spline_state = splinedraw::SplineState::new();
+
+    let spline_coefficients = splinedraw::make_spline_coefficients();
+
+    let mut line_objects = Vec::new();
+    for i in 0..modeler_state.objects.len() {
+	line_objects.push(lineobjects::create_line_object(&modeler_state.objects[i].vertices,
+							 &modeler_state.objects[i].indices));
+    }
+    
     
     unsafe {
 	
@@ -57,6 +85,11 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
     let shader_program = shaders::create_simple_shader(
 	&CString::new(include_str!("shaders/simple.vert")).unwrap(),
 	&CString::new(include_str!("shaders/simple.frag")).unwrap()
+    ).unwrap();
+
+    let line_program = shaders::create_simple_shader(
+	&CString::new(include_str!("shaders/screen_line.vert")).unwrap(),
+	&CString::new(include_str!("shaders/screen_line.frag")).unwrap()
     ).unwrap();
 
     
@@ -81,7 +114,7 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
     let white_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
 
     let no_translation = glm::vec4(0.0, 0.0, 0.0, 0.0);
-    let small_translation = glm::vec4(0.0, 0.0, -0.04, 0.0);
+    let small_translation = glm::vec4(0.0, 0.0, -0.08, 0.0);
 
 	
     let mut count = 0;
@@ -108,64 +141,113 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 	    gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
 	}
+
+	shader_program.activate();
 	
 	unsafe {
-	    gl::UniformMatrix4fv(transform_location,
-				 1, gl::FALSE, &trans[0][0]);
-	    gl::Uniform4fv(displacement_location,
-			   1, &no_translation[0]);
-	    gl::Uniform4fv(color_location,
-			   1, &black_color[0]);
+	    for i in 0..modeler_state.objects.len() {
+		let model_trans = glm::ext::translate(&glm::Matrix4::one(),
+						      glm::vec3(0.0, 0.0, (i as f32 - modeler_state.objects.len() as f32  + 1.0) * 2.5));
 
-	    gl::LineWidth(4.0);
-	    gl::BindVertexArray(line_object.all_vao);
-	    gl::DrawElements(
-		gl::LINES,
-		line_object.all_indices.len() as gl::types::GLsizei,
-		gl::UNSIGNED_INT,
-		std::ptr::null());
+		let trans = trans * model_trans;
+		
+		gl::UniformMatrix4fv(transform_location,
+				     1, gl::FALSE, &trans[0][0]);
+		gl::Uniform4fv(displacement_location,
+			       1, &no_translation[0]);
+		gl::Uniform4fv(color_location,
+			       1, &black_color[0]);
 
-	    gl::Uniform4fv(displacement_location,
-			   1, &small_translation[0]);
-	    gl::Uniform4fv(color_location,
-			   1, &white_color[0]);
-	    
-	    gl::BindVertexArray(modeler_state.objects[0].vao);
-	    gl::DrawElements(
-		gl::TRIANGLES,
-		modeler_state.objects[0].indices.len() as gl::types::GLsizei,
-		gl::UNSIGNED_INT,
-		std::ptr::null());
+		gl::LineWidth(4.0);
+		gl::BindVertexArray(line_objects[i].all_vao);
+		gl::DrawElements(
+		    gl::LINES,
+		    line_objects[i].all_indices.len() as gl::types::GLsizei,
+		    gl::UNSIGNED_INT,
+		    std::ptr::null());
 
-	    gl::Uniform4fv(color_location,
-			   1, &black_color[0]);
-	    gl::LineWidth(2.0);
+		gl::Uniform4fv(displacement_location,
+			       1, &small_translation[0]);
+		gl::Uniform4fv(color_location,
+			       1, &white_color[0]);
+		
+		gl::BindVertexArray(modeler_state.objects[i].vao);
+		gl::DrawElements(
+		    gl::TRIANGLES,
+		    modeler_state.objects[i].indices.len() as gl::types::GLsizei,
+		    gl::UNSIGNED_INT,
+		    std::ptr::null());
 
-	    gl::BindVertexArray(line_object.vao);
-	    gl::DrawElements(
-		gl::LINES,
-		line_object.indices.len() as gl::types::GLsizei,
-		gl::UNSIGNED_INT,
-		std::ptr::null());
+		gl::Uniform4fv(color_location,
+			       1, &black_color[0]);
+		gl::LineWidth(2.0);
+
+		gl::BindVertexArray(line_objects[i].vao);
+		gl::DrawElements(
+		    gl::LINES,
+		    line_objects[i].indices.len() as gl::types::GLsizei,
+		    gl::UNSIGNED_INT,
+		    std::ptr::null());
+	    }
 	}
 	
 	// Poll for and process events
 	glfw_state.glfw.poll_events();
+
+	let flushed_events = glfw::flush_messages(&glfw_state.events);
 	
-        for (_, event) in glfw::flush_messages(&glfw_state.events) {
-            println!("{:?}", event);
+        for (_, event) in flushed_events {
+            // println!("{:?}", event);
             match event {
                 glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
                     glfw_state.window.set_should_close(true)
                 },
+		glfw::WindowEvent::Key(Key::Enter, _, action, _) => {
+		    key_state.enter =
+			match action {
+			    Action::Release => false,
+			    Action::Press => true,
+			    Action::Repeat => key_state.enter
+			};
+		},
+		glfw::WindowEvent::CursorPos(x, y) => {
+		    mouse_state.pos = glm::vec2(x as f32, y as f32);
+		},
+		glfw::WindowEvent::CursorEnter(bb) => {
+		    mouse_state.in_window = bb;
+		},
+		glfw::WindowEvent::MouseButton(glfw::MouseButton::Button1,
+					       Action::Press, _) => {
+		    mouse_state.button1_pressed = true;
+		},
+		glfw::WindowEvent::MouseButton(glfw::MouseButton::Button1,
+					       Action::Release, _) => {
+		    mouse_state.button1_pressed = false;
+		},
                 _ => {},
             }
         }
+
+	if key_state.enter {
+	    if spline_state.spline_points.len() > 0 {
+		let cyllinder_object = cyllinder::create_cyllinder(0.5, 2.0, 20, 5, &spline_state);
+		
+		line_objects.push(lineobjects::create_line_object(&cyllinder_object.vertices,
+								  &cyllinder_object.indices));
+		modeler_state.objects.push(cyllinder_object);
+	    }
+	    spline_state = splinedraw::SplineState::new();
+	} else {
+	    splinedraw::handle_spline_draw(&mouse_state, &mut spline_state);
+	}
 	
+	line_program.activate();
+	spline_state.update_gpu_state(&spline_coefficients);
+	splinedraw::draw_spline(&spline_state);
         // Swap front and back buffers
         glfw_state.window.swap_buffers();
 
-	std::thread::sleep(std::time::Duration::from_millis(40));
+	std::thread::sleep(std::time::Duration::from_millis(10));
 	
     }
 }
