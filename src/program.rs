@@ -64,7 +64,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
     let mut line_objects = Vec::new();
     for i in 0..modeler_state.objects.len() {
 	line_objects.push(lineobjects::create_line_object(&modeler_state.objects[i].vertices,
-							 &modeler_state.objects[i].indices));
+							  &modeler_state.objects[i].indices));
     }
     
     
@@ -158,7 +158,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 		gl::Uniform4fv(color_location,
 			       1, &black_color[0]);
 
-		gl::LineWidth(4.0);
+		gl::LineWidth(1.0);
 		gl::BindVertexArray(line_objects[i].all_vao);
 		gl::DrawElements(
 		    gl::LINES,
@@ -166,7 +166,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 		    gl::UNSIGNED_INT,
 		    std::ptr::null());
 
-		gl::Uniform4fv(displacement_location,
+		/* gl::Uniform4fv(displacement_location,
 			       1, &small_translation[0]);
 		gl::Uniform4fv(color_location,
 			       1, &white_color[0]);
@@ -187,7 +187,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 		    gl::LINES,
 		    line_objects[i].indices.len() as gl::types::GLsizei,
 		    gl::UNSIGNED_INT,
-		    std::ptr::null());
+		    std::ptr::null()); */
 	    }
 	}
 	

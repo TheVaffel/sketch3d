@@ -57,14 +57,14 @@ pub fn create_cyllinder(radius : f32,
 		indices[ind_base + 6 * (i * 2 * circ_resolution + j) + 0] =
 		    vert_base + ii * 2 * icirc_resolution + (start_j + dir * ij      ) as u32 % (2 * icirc_resolution) - 2 * icirc_resolution;
 		indices[ind_base + 6 * (i * 2 * circ_resolution + j) + 1] =
-		    vert_base + ii       * 2 * icirc_resolution + (start_j + dir * ij      ) as u32 % (2 * icirc_resolution);
+		    vert_base + ii * 2 * icirc_resolution + (start_j + dir * ij      ) as u32 % (2 * icirc_resolution);
 		indices[ind_base + 6 * (i * 2 * circ_resolution + j) + 2] =
-		    vert_base + ii       * 2 * icirc_resolution + (start_j + dir * (ij + 1)) as u32 % (2 * icirc_resolution);
+		    vert_base + ii * 2 * icirc_resolution + (start_j + dir * (ij + 1)) as u32 % (2 * icirc_resolution);
 
 		indices[ind_base + 6 * (i * 2 * circ_resolution + j) + 3] =
 		    vert_base + ii * 2 * icirc_resolution + (start_j + dir * ij      ) as u32 % (2 * icirc_resolution) - 2 * icirc_resolution;
 		indices[ind_base + 6 * (i * 2 * circ_resolution + j) + 4] =
-		    vert_base + ii       * 2 * icirc_resolution + (start_j + dir * (ij + 1)) as u32 % (2 * icirc_resolution);
+		    vert_base + ii * 2 * icirc_resolution + (start_j + dir * (ij + 1)) as u32 % (2 * icirc_resolution);
 		indices[ind_base + 6 * (i * 2 * circ_resolution + j) + 5] =
 		    vert_base + ii * 2 * icirc_resolution + (start_j + dir * (ij + 1)) as u32 % (2 * icirc_resolution) - 2 * icirc_resolution;
 	    }
@@ -119,6 +119,7 @@ pub fn create_cyllinder(radius : f32,
 					    glm::vec3(spline_state.spline_points[ai].x,
 						      spline_state.spline_points[ai].y,
 						      0.0));
+	let z_dir = glm::vec3(z_dir.x, -z_dir.y, z_dir.z);
 	let y_dir = glm::vec3(-z_dir.y, z_dir.x, 0.0);
 	let x_dir = glm::vec3(0.0, 0.0, 1.0);
 	
@@ -127,7 +128,7 @@ pub fn create_cyllinder(radius : f32,
 	    let theta = ij as f32 * f32::consts::PI * 2.0 / (circ_resolution * 2) as f32;
 	    
 	    let vertex = glm::vec3(spline_state.spline_points[ai + 1].x,
-				   spline_state.spline_points[ai + 1].y,
+				   -spline_state.spline_points[ai + 1].y,
 				   0.0) * base_length +
 		y_dir * theta.sin() * radius +
 		x_dir * theta.cos() * radius;
@@ -146,21 +147,23 @@ pub fn create_cyllinder(radius : f32,
 
     // Create hemispheres
     for k in 0..2 {
-	let factor = if k == 0 {-1} else {1};
+	let factor = if k == 0 {-1.0} else {1.0};
 
 	let vert_base = 3 * (num_base_vertices + k * num_end_vertices);
 
 	let centerxy = if k == 0 { spline_state.spline_points[0] }
-	else { spline_state.spline_points[1] } ;
-	let center = glm::vec3(centerxy.x, centerxy.y, 0.0);
+	else { spline_state.spline_points[spline_state.spline_points.len() - 1] } ;
+	let center = glm::vec3(centerxy.x, -centerxy.y, 0.0);
 
 	let z_dirxy = if k == 0 { spline_state.spline_points[0] -
-				  spline_state.spline_points[1] }
+				  spline_state.spline_points[6] }
 	else {spline_state.spline_points[len_resolution] -
-	      spline_state.spline_points[len_resolution - 1] };
+	      spline_state.spline_points[len_resolution - 6] };
 
-	let z_dir = glm::builtin::normalize(glm::vec3(z_dirxy.x, z_dirxy.y, 0.0));
-	let y_dir = glm::vec3(-z_dir.y, z_dir.x, 0.0);
+	println!("Z dirxy: {:?}", z_dirxy);
+
+	let z_dir = glm::builtin::normalize(glm::vec3(z_dirxy.x, -z_dirxy.y, 0.0));
+	let y_dir = glm::vec3(- factor * z_dir.y, factor * z_dir.x, 0.0);
 	let x_dir = glm::vec3(0.0, 0.0, 1.0);
 	
 	for i in 0..(circ_resolution - 1) {
