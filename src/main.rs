@@ -10,6 +10,8 @@ mod objects;
 mod lineobjects;
 mod splinedraw;
 mod cyllinder;
+mod edit;
+mod utils;
 
 pub struct Object {
     vao: gl::types::GLuint, 

@@ -1,16 +1,105 @@
 
 use crate::splinedraw;
 use crate::objects;
+use crate::lineobjects;
+use crate::shaders;
 
+use std::ffi::{CString};
 use crate::Object;
 
 use std::f32;
+
+pub struct GeneralizedCyllinder {
+    pub object : Object,
+    pub line_object : lineobjects::LineObject,
+    spline : splinedraw::SplineState,
+}
+
+pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
+		      shader_program : &shaders::ShaderProgram,
+		      transform : &glm::Mat4) {
+    let black_color = glm::vec4(0.0, 0.0, 0.0, 1.0);
+    let white_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
+
+    let no_translation = glm::vec4(0.0, 0.0, 0.0, 0.0);
+    let small_translation = glm::vec4(0.0, 0.0, -0.08, 0.0);
+
+    
+    let transform_location = unsafe {
+        gl::GetUniformLocation(shader_program.id,
+                               CString::new("trans").unwrap().as_ptr())
+    };
+
+    let displacement_location = unsafe {
+	gl::GetUniformLocation(shader_program.id,
+			       CString::new("displacement").unwrap().as_ptr())
+    };
+
+    let color_location = unsafe {
+	gl::GetUniformLocation(shader_program.id,
+			       CString::new("uni_color").unwrap().as_ptr())
+    };
+    
+    unsafe {
+	gl::UniformMatrix4fv(transform_location,
+			     1, gl::FALSE, &transform[0][0]);
+	gl::Uniform4fv(displacement_location,
+		       1, &no_translation[0]);
+	gl::Uniform4fv(color_location,
+		       1, &black_color[0]);
+	
+	gl::LineWidth(1.0);
+	gl::BindVertexArray(generalized_cyllinder.line_object.all_vao);
+	gl::DrawElements(
+	    gl::LINES,
+	    generalized_cyllinder.line_object.all_indices.len() as gl::types::GLsizei,
+	    gl::UNSIGNED_INT,
+	    std::ptr::null());
+
+
+	gl::Uniform4fv(displacement_location,
+		       1, &small_translation[0]);
+	gl::Uniform4fv(color_location,
+		       1, &white_color[0]);
+	
+	gl::BindVertexArray(generalized_cyllinder.object.vao);
+	gl::DrawElements(
+	    gl::TRIANGLES,
+	    generalized_cyllinder.object.indices.len() as gl::types::GLsizei,
+	    gl::UNSIGNED_INT,
+	    std::ptr::null());
+
+	gl::Uniform4fv(color_location,
+		       1, &black_color[0]);
+	gl::LineWidth(2.0);
+
+	gl::BindVertexArray(generalized_cyllinder.line_object.vao);
+	gl::DrawElements(
+	    gl::LINES,
+	    generalized_cyllinder.line_object.indices.len() as gl::types::GLsizei,
+	    gl::UNSIGNED_INT,
+	    std::ptr::null());
+
+
+	gl::Disable(gl::DEPTH_TEST);
+    }
+
+    
+    splinedraw::draw_spline_lines(&generalized_cyllinder.spline);
+
+    splinedraw::draw_control_points(&generalized_cyllinder.spline);
+
+    unsafe {
+	gl::Enable(gl::DEPTH_TEST);
+    }
+}
 
 pub fn create_cyllinder(radius : f32,
 			length: f32,
 			circ_resolution: usize,
 			len_resolution : usize,
-			spline_state : & splinedraw::SplineState) -> Object {
+			mut spline_state : splinedraw::SplineState,
+			spline_coefficients : &splinedraw::SplineCoefficients) -> GeneralizedCyllinder {
     
     let len_resolution = spline_state.spline_points.len() - 1;
     let icirc_resolution = circ_resolution as u32;
@@ -106,12 +195,9 @@ pub fn create_cyllinder(radius : f32,
     let mut vertices : Vec<f32> = vec![0.0; num_total_vertices * 3];
 
     // Create base
-    let base_length = length - 2.0 * radius;
-    let base_mid = base_length / 2.0;
+    let base_length = 1.0; // length - 2.0 * radius;
     
     for i in 0..(len_resolution + 1) {
-	let ii = i as u32;
-
 	let ai = if i == len_resolution { i - 1 } else { i };
 	let z_dir = glm::builtin::normalize(glm::vec3(spline_state.spline_points[ai + 1].x,
 						      spline_state.spline_points[ai + 1].y,
@@ -132,12 +218,6 @@ pub fn create_cyllinder(radius : f32,
 				   0.0) * base_length +
 		y_dir * theta.sin() * radius +
 		x_dir * theta.cos() * radius;
-		
-	
-	    // Orient along x-axis
-	    /* vertices[3 * (i * circ_resolution * 2 + j) + 0] = base_length * ii as f32 / len_resolution as f32 - base_mid;
-	    vertices[3 * (i * circ_resolution * 2 + j) + 1] = theta.sin() * radius;
-	    vertices[3 * (i * circ_resolution * 2 + j) + 2] = theta.cos() * radius; */
 
 	    vertices[3 * (i * circ_resolution * 2 + j) + 0] = vertex.x;
 	    vertices[3 * (i * circ_resolution * 2 + j) + 1] = vertex.y;
@@ -153,7 +233,7 @@ pub fn create_cyllinder(radius : f32,
 
 	let centerxy = if k == 0 { spline_state.spline_points[0] }
 	else { spline_state.spline_points[spline_state.spline_points.len() - 1] } ;
-	let center = glm::vec3(centerxy.x, -centerxy.y, 0.0);
+	let center = glm::vec3(centerxy.x, -centerxy.y, 0.0) * base_length;
 
 	let z_dirxy = if k == 0 { spline_state.spline_points[0] -
 				  spline_state.spline_points[6] }
@@ -177,14 +257,6 @@ pub fn create_cyllinder(radius : f32,
 		    y_dir * radius * cp * theta.sin() +
 		    x_dir * radius * cp * theta.cos();
 		
-		
-		/* vertices[vert_base + 3 * (i * circ_resolution * 2 + j) + 0] =
-		    factor as f32 * (base_mid + sp * radius);
-		vertices[vert_base + 3 * (i * circ_resolution * 2 + j) + 1] =
-		    radius * cp * theta.sin();
-		vertices[vert_base + 3 * (i * circ_resolution * 2 + j) + 2] =
-		    radius * cp * theta.cos(); */
-
 		vertices[vert_base + 3 * (i * circ_resolution * 2 + j) + 0] = vertex.x;
 		vertices[vert_base + 3 * (i * circ_resolution * 2 + j) + 1] = vertex.y;
 		vertices[vert_base + 3 * (i * circ_resolution * 2 + j) + 2] = vertex.z;
@@ -194,11 +266,16 @@ pub fn create_cyllinder(radius : f32,
 
 	let vertex = center + z_dir * radius;
 	
-	vertices[vert_base + 3 * (num_end_vertices - 1) + 0] = vertex.x; // factor as f32 * (base_mid + radius);
+	vertices[vert_base + 3 * (num_end_vertices - 1) + 0] = vertex.x; 
 	vertices[vert_base + 3 * (num_end_vertices - 1) + 1] = vertex.y;
 	vertices[vert_base + 3 * (num_end_vertices - 1) + 2] = vertex.z;
     }
 
-    objects::create_object(vertices, indices)
-
+    splinedraw::spline_screen_to_world_transform(&mut spline_state, &spline_coefficients);
+    
+    GeneralizedCyllinder {
+	line_object: lineobjects::create_line_object(&vertices, &indices),
+	object: objects::create_object(vertices, indices),
+	spline: spline_state }
+	
 }

@@ -10,16 +10,22 @@ use std::f32;
 use num_traits::identities::One;
 
 use crate::settings;
-use crate::shaders::{self};
+use crate::shaders;
 use crate::objects;
 use crate::lineobjects;
 use crate::splinedraw;
 use crate::cyllinder;
+use crate::utils;
 
 pub struct MouseState {
     pub pos: glm::Vec2,
     pub button1_pressed: bool,
     pub in_window: bool,
+}
+
+pub enum ProgramState {
+    Draw,
+    Edit(cyllinder::GeneralizedCyllinder),
 }
 
 
@@ -67,6 +73,8 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 							  &modeler_state.objects[i].indices));
     }
     
+
+    let mut cyllinders : Vec<cyllinder::GeneralizedCyllinder> = Vec::new();
     
     unsafe {
 	
@@ -95,7 +103,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
     
     shader_program.activate();
 
-    let transform_location = unsafe {
+    /* let transform_location = unsafe {
         gl::GetUniformLocation(shader_program.id,
                                CString::new("trans").unwrap().as_ptr())
     };
@@ -114,7 +122,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
     let white_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
 
     let no_translation = glm::vec4(0.0, 0.0, 0.0, 0.0);
-    let small_translation = glm::vec4(0.0, 0.0, -0.08, 0.0);
+    let small_translation = glm::vec4(0.0, 0.0, -0.08, 0.0); */
 
 	
     let mut count = 0;
@@ -125,12 +133,17 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 	count += 1;
 	
 	let r :f32 = 2.0;
-	let phi :f32 = 0.5;
-	let th :f32 = count as f32 / 50.7;
-	
-	let trans = glm::ext::perspective(30.0, 4.0 / 3.0,
+	// let phi : f32 = 0.5;
+	let phi : f32 = 0.0;
+	// let th :f32 = count as f32 / 50.7;
+	let th : f32 = 0.0;
+
+	/* let proj = glm::ext::perspective(30.0, 4.0 / 3.0,
 					  0.1,
-					  100.0) *
+	100.0);*/
+	let proj = utils::ortho(-1.0, 1.0, -1.0, 1.0, -100.0, 100.0);
+	
+	let trans = proj *
 	    glm::ext::look_at(glm::vec3(r * th.sin() * phi.cos(),
 					-r * phi.sin(),
 					r * th.cos() * phi.cos()),
@@ -139,20 +152,31 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 
 	unsafe {
 	    gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-
 	}
 
 	shader_program.activate();
 	
 	unsafe {
-	    for i in 0..modeler_state.objects.len() {
+	    // for i in 0..modeler_state.objects.len() {
+	    for i in 0..cyllinders.len() {
 		let model_trans = glm::ext::translate(&glm::Matrix4::one(),
-						      glm::vec3(0.0, 0.0, (i as f32 - modeler_state.objects.len() as f32  + 1.0) * 2.5));
-
-		let trans = trans * model_trans;
+						      glm::vec3(0.0, 0.0,
+								// (i as f32 - modeler_state.objects.len() as f32
+								(i as f32 - cyllinders.len() as f32
+								 + 1.0) * 2.5));
 		
-		gl::UniformMatrix4fv(transform_location,
-				     1, gl::FALSE, &trans[0][0]);
+		let trans = trans * model_trans; 
+		
+		/* gl::UniformMatrix4fv(transform_location,
+				     1, gl::FALSE, &trans[0][0]); */
+
+		
+		cyllinder::draw_cyllinder(&cyllinders[i],
+					  &shader_program,
+					  &trans);
+		
+		/* 
+		
 		gl::Uniform4fv(displacement_location,
 			       1, &no_translation[0]);
 		gl::Uniform4fv(color_location,
@@ -164,7 +188,8 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 		    gl::LINES,
 		    line_objects[i].all_indices.len() as gl::types::GLsizei,
 		    gl::UNSIGNED_INT,
-		    std::ptr::null());
+		std::ptr::null());*/
+
 
 		/* gl::Uniform4fv(displacement_location,
 			       1, &small_translation[0]);
@@ -229,21 +254,26 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
         }
 
 	if key_state.enter {
+	    println!("Enter state true");
 	    if spline_state.spline_points.len() > 0 {
-		let cyllinder_object = cyllinder::create_cyllinder(0.5, 2.0, 20, 5, &spline_state);
+		let cyllinder_object = cyllinder::create_cyllinder(0.3, 2.0, 5, 5, spline_state, &spline_coefficients);
 		
-		line_objects.push(lineobjects::create_line_object(&cyllinder_object.vertices,
-								  &cyllinder_object.indices));
-		modeler_state.objects.push(cyllinder_object);
+		// line_objects.push(cyllinder_object.line_object);
+		// modeler_state.objects.push(cyllinder_object.object);
+
+		cyllinders.push(cyllinder_object);
+		
+		spline_state = splinedraw::SplineState::new();
 	    }
-	    spline_state = splinedraw::SplineState::new();
 	} else {
+	    // println!("Handling draw");
 	    splinedraw::handle_spline_draw(&mouse_state, &mut spline_state);
 	}
 	
 	line_program.activate();
 	spline_state.update_gpu_state(&spline_coefficients);
-	splinedraw::draw_spline(&spline_state);
+	splinedraw::draw_spline_lines(&spline_state);
+	
         // Swap front and back buffers
         glfw_state.window.swap_buffers();
 

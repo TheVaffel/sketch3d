@@ -53,18 +53,22 @@ pub fn make_spline_coefficients() -> SplineCoefficients {
 
 
 pub struct SplineState {
-    control_points    : Vec<glm::Vec2>,
-    pub spline_points     : Vec<glm::Vec2>,
-    vao       : gl::types::GLuint,
-    vbo       : gl::types::GLuint,
+    control_points    : Vec<glm::Vec3>,
+    pub spline_points     : Vec<glm::Vec3>,
+    spline_lines_vao       : gl::types::GLuint,
+    spline_lines_vbo       : gl::types::GLuint,
+    control_points_vao     : gl::types::GLuint,
+    control_points_vbo     : gl::types::GLuint
 }
 
 
 impl Drop for SplineState {
     fn drop(&mut self) {
 	unsafe {
-	    gl::DeleteBuffers(1, &self.vbo);
-	    gl::DeleteVertexArrays(1, &self.vao);
+	    gl::DeleteBuffers(1, &self.spline_lines_vbo);
+	    gl::DeleteVertexArrays(1, &self.spline_lines_vao);
+	    gl::DeleteBuffers(1, &self.control_points_vbo);
+	    gl::DeleteVertexArrays(1, &self.control_points_vao);
 	}
     }
 }
@@ -73,19 +77,35 @@ impl SplineState {
     pub fn new() -> SplineState {
 	let mut spline_state = SplineState {control_points: Vec::new(),
 					    spline_points: Vec::new(),
-					    vao: 0, vbo: 0 };
+					    spline_lines_vao: 0, spline_lines_vbo: 0,
+					    control_points_vao: 0, control_points_vbo: 0};
 
 	unsafe {
-	    gl::GenBuffers(1, &mut spline_state.vbo);
-	    gl::GenVertexArrays(1, &mut spline_state.vao);
+	    // Spline lines
+	    gl::GenBuffers(1, &mut spline_state.spline_lines_vbo);
+	    gl::GenVertexArrays(1, &mut spline_state.spline_lines_vao);
 
-	    gl::BindBuffer(gl::ARRAY_BUFFER, spline_state.vbo);
-	    gl::BindVertexArray(spline_state.vao);
+	    gl::BindBuffer(gl::ARRAY_BUFFER, spline_state.spline_lines_vbo);
+	    gl::BindVertexArray(spline_state.spline_lines_vao);
 	    gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
 
 	    gl::VertexAttribPointer(
-		0, 2, gl::FLOAT,
-		gl::FALSE, (2 * std::mem::size_of::<f32>()) as gl::types::GLint,
+		0, 3, gl::FLOAT,
+		gl::FALSE, (3 * std::mem::size_of::<f32>()) as gl::types::GLint,
+		std::ptr::null());
+	    gl::EnableVertexAttribArray(0);
+
+	    // Control points
+	    gl::GenBuffers(1, &mut spline_state.control_points_vbo);
+	    gl::GenVertexArrays(1, &mut spline_state.control_points_vao);
+
+	    gl::BindBuffer(gl::ARRAY_BUFFER, spline_state.control_points_vbo);
+	    gl::BindVertexArray(spline_state.control_points_vao);
+	    gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+
+	    gl::VertexAttribPointer(
+		0, 3, gl::FLOAT,
+		gl::FALSE, (3 * std::mem::size_of::<f32>()) as gl::types::GLint,
 		std::ptr::null());
 	    gl::EnableVertexAttribArray(0);
 	}
@@ -95,16 +115,16 @@ impl SplineState {
 
     pub fn update_gpu_state(self: &mut SplineState, coeffs: &SplineCoefficients) {
 
-	if (self.spline_points.len() as i32 - 1) / (SPLINE_RESOLUTION as i32) <
-	    self.control_points.len() as i32 - SPLINE_DEGREE as i32 &&
-	    self.control_points.len() >= SPLINE_DEGREE + 2 {
-	
+	if self.control_points.len() >= 2 {
+	    for _i in 0..SPLINE_DEGREE {
+		self.control_points.push(self.control_points[self.control_points.len() - 1]);
+	    }
+	    
+	    self.spline_points.clear();
+	    
 		if self.spline_points.len() == 0 {
 		    self.spline_points.push(self.control_points[0]);
 		}
-
-		// let dt = 1.0 / SPLINE_RESOLUTION as f32;
-		
 		// Build from start_cp + dt, start_cp + 2 * dt ... start_cp + 1
 		// NB: Assumes start_cp is multiple of 
 		let start_cp = self.spline_points.len() / SPLINE_RESOLUTION;
@@ -113,7 +133,7 @@ impl SplineState {
 		let num_points = num_cp * SPLINE_RESOLUTION;
 
 		for i in 0..num_points {
-		    let mut pp = glm::vec2(0.0, 0.0);
+		    let mut pp = glm::vec3(0.0, 0.0, 0.0);
 		    let curr_point = start_cp + (i + 1) / SPLINE_RESOLUTION; 
 
 		    let b_ind = (i + 1) % SPLINE_RESOLUTION;
@@ -125,46 +145,83 @@ impl SplineState {
 
 		    self.spline_points.push(pp);
 		}
-		
+
+	    for _i in 0..SPLINE_DEGREE {
+		self.control_points.pop();
+	    }
+	    
 		unsafe {
-		    gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+		    gl::BindBuffer(gl::ARRAY_BUFFER, self.spline_lines_vbo);
 		    gl::BufferData(
 			gl::ARRAY_BUFFER,
-			(self.spline_points.len() * std::mem::size_of::<glm::Vec2>()) as gl::types::GLsizeiptr,
+			(self.spline_points.len() * std::mem::size_of::<glm::Vec3>()) as gl::types::GLsizeiptr,
 			self.spline_points.as_ptr() as *const gl::types::GLvoid,
 			gl::STREAM_DRAW);
 		}
-	    }
+
+	}
+	
+	unsafe {
+	    gl::BindBuffer(gl::ARRAY_BUFFER, self.control_points_vbo);
+	    gl::BufferData(
+		gl::ARRAY_BUFFER,
+		(self.control_points.len() * std::mem::size_of::<glm::Vec3>()) as gl::types::GLsizeiptr,
+		self.control_points.as_ptr() as *const gl::types::GLvoid,
+		gl::STREAM_DRAW);
+	}
     }
+
+    
 }
 
-pub fn draw_spline(spline_state: &SplineState ) {
+
+pub fn spline_screen_to_world_transform(spline:  &mut SplineState, spline_coefficients: &SplineCoefficients) {
+    // TODO (just flip y-coordinates)
+
+    for i in 0..spline.control_points.len() {
+	spline.control_points[i][1] = - spline.control_points[i][1];
+    }
+
+    spline.update_gpu_state(&spline_coefficients);
+}
+
+pub fn draw_spline_lines(spline_state: &SplineState ) {
     unsafe {
-	gl::BindVertexArray(spline_state.vao);
+	gl::BindVertexArray(spline_state.spline_lines_vao);
 	gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
 	gl::EnableVertexAttribArray(0);
 	gl::LineWidth(2.0);
 
 	gl::DrawArrays(gl::LINE_STRIP, 0, spline_state.spline_points.len() as i32);
     }
-    
+}
+
+pub fn draw_control_points(spline_state: &SplineState ) {
+    unsafe {
+	gl::BindVertexArray(spline_state.control_points_vao);
+	gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+	gl::EnableVertexAttribArray(0);
+	gl::PointSize(6.0);
+
+	gl::DrawArrays(gl::POINTS, 0, spline_state.control_points.len() as i32);
+    }
 }
 
 
 pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut SplineState) {
-    if mouse_state.button1_pressed && mouse_state.in_window {
-	let new_point = mouse_state.pos.clone() /
-	    (glm::vec2(settings::WINDOW_WIDTH as f32,
-		       - (settings::WINDOW_HEIGHT as f32)) / 2.0)
-	    + glm::vec2(- 1.0, 1.0);
+    
+        if mouse_state.button1_pressed && mouse_state.in_window {
+	let clone = mouse_state.pos.clone();
+	let new_point = glm::vec3(clone.x, clone.y, 0.0) /
+	    (glm::vec3(settings::WINDOW_WIDTH as f32,
+		       - (settings::WINDOW_HEIGHT as f32), 1.0) / 2.0)
+	    + glm::vec3(- 1.0, 1.0, 0.0);
+
 	
 	if spline_state.control_points.len() == 0 {
-	    
-		if spline_state.control_points.len() == 0 {
-		    for _ in 0..(SPLINE_DEGREE+1) {
-			spline_state.control_points.push(new_point);
-		    }
-		}
+	    for _ in 0..(SPLINE_DEGREE+1) {
+		spline_state.control_points.push(new_point);
+	    }
 	    
 	} else if length(new_point - spline_state.control_points[spline_state.control_points.len() - 1] )
 	    >= LINE_LIMIT * 0.9 &&
