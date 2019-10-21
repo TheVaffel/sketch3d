@@ -1,0 +1,87 @@
+\section*{Procedural Modeling of a Building from a Single Image}
+
+Gen Nishida
+Adrien Bousseau
+Daniel G. Aliaga
+
+The authors show how to create a building grammar from a single real-life photo of a building.
+
+The method deduces the camera extrinsics and intrinsics after a user has marked the silhouette of the buildings. Then, the method chooses a fitting building mass from a list of 30 different parameterizable bases. Then it deduces ledge appearance and grammar for window structure, using machine learning methods. The CNN is trained by rendering silhouettes from those mass grammars. Uses seperate CNNs for each building mass style to deduct parameters.
+
+
+\section*{Shape Synthesis from Sketches via Procedural Models and Convolutional Networks}
+
+Haibin Huang
+Evangelos Kalogerakis
+Ersin Yumer
+Radomir Mech
+
+The authors present a machine learning approach cabable of synthesizing 3D objects from sketches.
+
+They use a CNN (surprise, surprise..) to interpret a 2D sketch made by hand by a user. The CNN consists of two AlexNet-ish components in parallel, one that estimates probability for type of object (the whole network is only made for one category, which can have different types), and one that estimates the procedural parameters for the final shape. 
+
+Training the CNN is done by generating a lot of synthetic data by randomly sampling the procedural modelling (PM) parameter space. They try to erradicate duplicates, geometries that look similar, even though their parameters are different, by computing features on renderings of the models with first part of the AlexNet, up to last fully connected layer. Then constructs 2D line drawings of each object, with suggestive contours (paper from 2003), and trains network using those. 
+
+Results are pretty good, but is limited to specified classes, and is not fully resistent to human-like drawing flaws. Must train the entire network specifically for a single class.
+
+
+\section*{Pixel2Mesh: Generating 3D Mesh Models from Single RGB Images}
+
+Nanyang Wang
+Yinda Zhang
+Zhuwen Li
+Yanwei Fu
+Wei Liu
+Yu-Gang Jiang
+
+The authors provide a method of generating a 3D model (as a mesh) from a 2D RGB image. The method uses an initial sphere mesh, and a graph convolutional neural network to deform the mesh through three layers and gain a final mesh. The method uses both an image convolutional neural network and a graph one. The image CNN provides perceptual features that are coupled with the coordinates of each vertex in screen-space and sent through the Graph CNN. They include several regularization loss functions to make it all happen. In the end, seems to work pretty well.
+
+
+\section*{A Hybrid Approach for Character Modeling Using Geometric Primitives and Shape-from-Shading Algorithm}
+
+Ismail Khalid Kazmi
+Lihua You
+Jian Jun Zhang
+
+The authors provide a way to edit models at both a high- and low-detail level. At high level, they provide the users with three basic primitives (generalized cyllinders, ellipsoids and cubes), which are highly editable. On the low level, (I didn't read this too carefully) they allow the user to use images to generate a height-map that gives local detail to mesh.
+
+The approach isn't super easy, and is not super good in any particular way, but it is a step towards letting people create models at several granularities
+
+
+\section*{An Algebraic Model for Parameterized Shape Editing}
+
+Martin Bokeloh
+Michael Wand
+Hans-Peter Seidel
+Vladlen Koltun
+
+The authors present a method of detecting regularities in models and using them to produce new models by considering them as degrees of freedom. Their method lets the patterns naturally extend or detract as parameters of the model is changed. 
+
+Their method builds upon a large linear system, satisfying the constraints of the different regular patterns (?). Then, editing the shape is imposing a quadratic objective function on the system. 
+
+
+\section*{A Survey of Procedural Content Generation Techniques Suitable to Game Development}
+
+Daniel Michelon De Carli
+Fernando Bevilacqua
+Cesar Tadeu Pozzer
+Marcos Dordeiro d'Ornellas
+
+A survey talking about bits and pieces within procedural generation and its use.
+
+
+\section*{A Survey on the Procedural Generation of Virtual Worlds}
+
+Jonas Freiknechn
+Wolfgang Effelsberg
+
+A survey examining the use of procedural generation in games. Both historically, potential uses and research that has been done in the area.
+
+
+\section*{Structured Annotations for 2D-to-3D Modeling}
+
+Yotam Gingold
+Takeo Igarashi
+Denis Zorin
+
+The authors present a method for making 3D objects with 2D gestures (mouse, pen, etc...). The models are primarily built using generalized cyllinders and ellipsoids. The generalized cyllinders can be bowed by manipulating a spline curve that represents its ``spine'' along with the thickness at various points, and its shape. The method is primarily constructed to ease the process of going from a 2D image to a 3D model.

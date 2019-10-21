@@ -1,0 +1,39 @@
+\documentclass[english]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{babel}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\setlength{\headheight}{40pt}
+
+\begin{document}
+
+\title{Intuitive Shape Grammar Construction}
+
+\author{Håkon Flatval}
+
+\maketitle
+\thispagestyle{fancy}
+
+\begin{center}
+
+  % Life hack, create abstract before anyone tells you it's impossible to achieve what you are doing
+  {\bf \Large Abstract:} Procedural generation with shape grammars is powerful, but is unintuitive and time consuming to specify, even for experts. In this project, I have looked closer at generating geometric shape grammars more intuitively, by allowing the user to get real-time feedback on their changes to the grammar. The created application allows the user to draw and specify the shape by using primitives. The primitives can be linked together with \textit{pivot points}, for which the user will specify rules, which they will adhere to when the model is used for generating a large amount of objects procedurally. Letting the user specify complicated structure and connections turns out to be favorable in many situations, despite requiring a bit of technical knowledge by the artist.
+  
+\end{center}
+
+\section{Introduction}
+
+Procedural generation is a powerful tool for artists to create a large amount of geometric entities that can incorporate both natural-looking variety and order alike. One of the most prominent problems with procedural generation today, is that even experts will use a lot of time and knowledge in order to successfully create a procedurally generated popuration of an entity of some kind.
+
+In this paper, I will discuss an application that makes use of tools for artists that go beyond just creating geometry, by extending it to more high-level connections in-between primitives of the geometry, that can generalize well over parameter changes.
+
+
+\section{Related Work}
+
+The power of procedural generation has been proven in the creation of plants (SOME CITATION), buildings (SOME OTHER CITATION) and even whole cities (THAT PARISH PAPER, YOU KNOW). There are various ways of seeding procedural generation, shape grammars being among the most popular ones.
+
+\end{document}
