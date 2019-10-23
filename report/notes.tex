@@ -85,3 +85,25 @@ Takeo Igarashi
 Denis Zorin
 
 The authors present a method for making 3D objects with 2D gestures (mouse, pen, etc...). The models are primarily built using generalized cyllinders and ellipsoids. The generalized cyllinders can be bowed by manipulating a spline curve that represents its ``spine'' along with the thickness at various points, and its shape. The method is primarily constructed to ease the process of going from a 2D image to a 3D model.
+
+\section*{As-Rigid-As-Possible Shape Manipulation} (not read closely)
+
+Takeo Igarashi
+Tomer Moscovich
+John F. Hughes
+
+The authors present methods for editing 2D figures. The most promoted method divides a 2D-drawing into triangles and minimizes distortion of the body as a user drags limbs of the model around. More relevant to the task at hand, is their curve editing with ``peeling'' interface. As the user drags a part of the curve away from its original position, the region of the curve that gets influenced by the movement grows. Alternatively, the user can specify a region of influence beforehand. The curve is deformed by Laplacian editing (see next item).
+
+
+\section*{Laplacian Surface Editing}
+
+O. Sorkine
+D. Cohen-Or
+Y. Lipman
+M. Alexa
+C. Rössl
+H.-P. Seidel
+
+The authors present a method for editing surfaces (I think in 3D, but can probably be used for other dimensions as well), using the Laplacian, that is, by using each vertex' posiiton relative to their neighbors. The paper uses some convoluted form of optimization, I'm not even sure I want to go into the details. All in all, marking regions of interest and using them as interfaces against larger deformations (like moving a jaw), is possible and pretty effective using the Laplacian. They also showcase a couple of methods for imposing high-frequency texture (``coating'') from one model onto another, and also how one can connect a part of one shape to another by using the Laplacian.
+
+
