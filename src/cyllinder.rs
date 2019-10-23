@@ -12,11 +12,12 @@ use std::f32;
 pub struct GeneralizedCyllinder {
     pub object : Object,
     pub line_object : lineobjects::LineObject,
-    spline : splinedraw::SplineState,
+    pub spline : splinedraw::SplineState,
 }
 
 pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
-		      shader_program : &shaders::ShaderProgram,
+		      body_program : &shaders::ShaderProgram,
+		      line_program : &shaders::ShaderProgram,
 		      transform : &glm::Mat4) {
     let black_color = glm::vec4(0.0, 0.0, 0.0, 1.0);
     let white_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
@@ -24,19 +25,20 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
     let no_translation = glm::vec4(0.0, 0.0, 0.0, 0.0);
     let small_translation = glm::vec4(0.0, 0.0, -0.08, 0.0);
 
+    body_program.activate();
     
     let transform_location = unsafe {
-        gl::GetUniformLocation(shader_program.id,
+        gl::GetUniformLocation(body_program.id,
                                CString::new("trans").unwrap().as_ptr())
     };
 
     let displacement_location = unsafe {
-	gl::GetUniformLocation(shader_program.id,
+	gl::GetUniformLocation(body_program.id,
 			       CString::new("displacement").unwrap().as_ptr())
     };
 
     let color_location = unsafe {
-	gl::GetUniformLocation(shader_program.id,
+	gl::GetUniformLocation(body_program.id,
 			       CString::new("uni_color").unwrap().as_ptr())
     };
     
@@ -50,6 +52,8 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
 	
 	gl::LineWidth(1.0);
 	gl::BindVertexArray(generalized_cyllinder.line_object.all_vao);
+
+	gl::DisableVertexAttribArray(1);
 	gl::DrawElements(
 	    gl::LINES,
 	    generalized_cyllinder.line_object.all_indices.len() as gl::types::GLsizei,
@@ -74,6 +78,7 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
 	gl::LineWidth(2.0);
 
 	gl::BindVertexArray(generalized_cyllinder.line_object.vao);
+	println!("Number of lines to draw: {}", generalized_cyllinder.line_object.indices.len());
 	gl::DrawElements(
 	    gl::LINES,
 	    generalized_cyllinder.line_object.indices.len() as gl::types::GLsizei,
@@ -82,6 +87,19 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
 
 
 	gl::Disable(gl::DEPTH_TEST);
+	gl::EnableVertexAttribArray(1);
+    }
+
+    line_program.activate();
+
+    let transform_location = unsafe {
+	gl::GetUniformLocation(line_program.id,
+			       CString::new("trans").unwrap().as_ptr())
+    };
+
+    unsafe {
+	gl::UniformMatrix4fv(transform_location,
+			     1, gl::FALSE, &transform[0][0]);
     }
 
     
@@ -98,8 +116,7 @@ pub fn create_cyllinder(radius : f32,
 			length: f32,
 			circ_resolution: usize,
 			len_resolution : usize,
-			mut spline_state : splinedraw::SplineState,
-			spline_coefficients : &splinedraw::SplineCoefficients) -> GeneralizedCyllinder {
+			mut spline_state : splinedraw::SplineState) -> GeneralizedCyllinder {
     
     let len_resolution = spline_state.spline_points.len() - 1;
     let icirc_resolution = circ_resolution as u32;
@@ -271,7 +288,7 @@ pub fn create_cyllinder(radius : f32,
 	vertices[vert_base + 3 * (num_end_vertices - 1) + 2] = vertex.z;
     }
 
-    splinedraw::spline_screen_to_world_transform(&mut spline_state, &spline_coefficients);
+    splinedraw::spline_screen_to_world_transform(&mut spline_state);
     
     GeneralizedCyllinder {
 	line_object: lineobjects::create_line_object(&vertices, &indices),

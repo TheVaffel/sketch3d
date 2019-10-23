@@ -51,14 +51,22 @@ pub fn make_spline_coefficients() -> SplineCoefficients {
     coeffs
 }
 
+lazy_static! {
+    pub static ref SPLINE_COEFFICIENTS : SplineCoefficients = make_spline_coefficients();
+}
+
+
 
 pub struct SplineState {
-    control_points    : Vec<glm::Vec3>,
+    pub control_points    : Vec<glm::Vec3>,
+    point_colors      : Vec<glm::Vec4>, // Colors of control points
     pub spline_points     : Vec<glm::Vec3>,
     spline_lines_vao       : gl::types::GLuint,
     spline_lines_vbo       : gl::types::GLuint,
     control_points_vao     : gl::types::GLuint,
-    control_points_vbo     : gl::types::GLuint
+    control_points_vbo     : gl::types::GLuint,
+    point_color_vbo        : gl::types::GLuint,
+    spline_color_vbo       : gl::types::GLuint
 }
 
 
@@ -67,6 +75,8 @@ impl Drop for SplineState {
 	unsafe {
 	    gl::DeleteBuffers(1, &self.spline_lines_vbo);
 	    gl::DeleteVertexArrays(1, &self.spline_lines_vao);
+	    gl::DeleteBuffers(1, &self.point_color_vbo);
+	    gl::DeleteBuffers(1, &self.spline_color_vbo);
 	    gl::DeleteBuffers(1, &self.control_points_vbo);
 	    gl::DeleteVertexArrays(1, &self.control_points_vao);
 	}
@@ -74,11 +84,22 @@ impl Drop for SplineState {
 }
 
 impl SplineState {
+    
+
+    fn add_control_point(self : &mut SplineState,
+			 vec : glm::Vec3) {
+	self.control_points.push(vec);
+	self.point_colors.push(glm::vec4(0.0, 0.0, 0.0, 1.0));
+    }
+
+    
     pub fn new() -> SplineState {
 	let mut spline_state = SplineState {control_points: Vec::new(),
+					    point_colors: Vec::new(),
 					    spline_points: Vec::new(),
 					    spline_lines_vao: 0, spline_lines_vbo: 0,
-					    control_points_vao: 0, control_points_vbo: 0};
+					    control_points_vao: 0, control_points_vbo: 0,
+					    point_color_vbo: 0, spline_color_vbo: 0};
 
 	unsafe {
 	    // Spline lines
@@ -89,75 +110,108 @@ impl SplineState {
 	    gl::BindVertexArray(spline_state.spline_lines_vao);
 	    gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
 
+	    
+	    gl::EnableVertexAttribArray(0);
 	    gl::VertexAttribPointer(
 		0, 3, gl::FLOAT,
 		gl::FALSE, (3 * std::mem::size_of::<f32>()) as gl::types::GLint,
 		std::ptr::null());
-	    gl::EnableVertexAttribArray(0);
+
+	    
+	    gl::EnableVertexAttribArray(1);
+	    gl::VertexAttribPointer(
+		1, 4, gl::FLOAT,
+		gl::FALSE, (4 * std::mem::size_of::<f32>()) as gl::types::GLint,
+		std::ptr::null());
 
 	    // Control points
 	    gl::GenBuffers(1, &mut spline_state.control_points_vbo);
+	    gl::GenBuffers(1, &mut spline_state.point_color_vbo);
 	    gl::GenVertexArrays(1, &mut spline_state.control_points_vao);
 
 	    gl::BindBuffer(gl::ARRAY_BUFFER, spline_state.control_points_vbo);
 	    gl::BindVertexArray(spline_state.control_points_vao);
 	    gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
 
+	    gl::EnableVertexAttribArray(0);
 	    gl::VertexAttribPointer(
 		0, 3, gl::FLOAT,
 		gl::FALSE, (3 * std::mem::size_of::<f32>()) as gl::types::GLint,
 		std::ptr::null());
-	    gl::EnableVertexAttribArray(0);
+
+	    gl::EnableVertexAttribArray(1);
+	    gl::BindBuffer(gl::ARRAY_BUFFER, spline_state.point_color_vbo);
+	    gl::VertexAttribPointer(
+		1, 4, gl::FLOAT,
+		gl::FALSE, (4 * std::mem::size_of::<f32>()) as gl::types::GLint,
+		std::ptr::null());
 	}
 
 	spline_state
     }
 
-    pub fn update_gpu_state(self: &mut SplineState, coeffs: &SplineCoefficients) {
+    pub fn update_gpu_state(self: &mut SplineState) {
 
 	if self.control_points.len() >= 2 {
 	    for _i in 0..SPLINE_DEGREE {
-		self.control_points.push(self.control_points[self.control_points.len() - 1]);
+		// self.control_points.push(self.control_points[self.control_points.len() - 1]);
+		self.add_control_point(self.control_points[self.control_points.len() - 1]);
 	    }
 	    
 	    self.spline_points.clear();
+	    // let mut spline_points : Vec<glm::Vec3> = Vec::new();
+
+	    let mut spline_colors : Vec<glm::Vec4> = Vec::new();
 	    
-		if self.spline_points.len() == 0 {
-		    self.spline_points.push(self.control_points[0]);
+	    if self.spline_points.len() == 0 {
+		self.spline_points.push(self.control_points[0]);
+		spline_colors.push(self.point_colors[0]);
+	    }
+	    // Build from start_cp + dt, start_cp + 2 * dt ... start_cp + 1
+	    // NB: Assumes start_cp is multiple of 
+	    let start_cp = self.spline_points.len() / SPLINE_RESOLUTION;
+
+	    let num_cp = self.control_points.len() - SPLINE_DEGREE - start_cp - 1;
+	    let num_points = num_cp * SPLINE_RESOLUTION;
+
+	    for i in 0..num_points {
+		let mut pp = glm::vec3(0.0, 0.0, 0.0);
+		let mut cp = glm::vec4(0.0, 0.0, 0.0, 1.0);
+		let curr_point = start_cp + (i + 1) / SPLINE_RESOLUTION; 
+
+		let b_ind = (i + 1) % SPLINE_RESOLUTION;
+		
+		for j in 0..(SPLINE_DEGREE+1) {
+		    pp = pp + self.control_points[curr_point + j] *
+			SPLINE_COEFFICIENTS.coefficients[b_ind][j];
+		    cp = cp + self.point_colors[curr_point + j] *
+			SPLINE_COEFFICIENTS.coefficients[b_ind][j];
 		}
-		// Build from start_cp + dt, start_cp + 2 * dt ... start_cp + 1
-		// NB: Assumes start_cp is multiple of 
-		let start_cp = self.spline_points.len() / SPLINE_RESOLUTION;
 
-		let num_cp = self.control_points.len() - SPLINE_DEGREE - start_cp - 1;
-		let num_points = num_cp * SPLINE_RESOLUTION;
-
-		for i in 0..num_points {
-		    let mut pp = glm::vec3(0.0, 0.0, 0.0);
-		    let curr_point = start_cp + (i + 1) / SPLINE_RESOLUTION; 
-
-		    let b_ind = (i + 1) % SPLINE_RESOLUTION;
-		    
-		    for j in 0..(SPLINE_DEGREE+1) {
-			pp = pp + self.control_points[curr_point + j] *
-			    coeffs.coefficients[b_ind][j];
-		    }
-
-		    self.spline_points.push(pp);
-		}
+		self.spline_points.push(pp);
+		spline_colors.push(cp);
+	    }
 
 	    for _i in 0..SPLINE_DEGREE {
 		self.control_points.pop();
+		self.point_colors.pop();
 	    }
 	    
-		unsafe {
-		    gl::BindBuffer(gl::ARRAY_BUFFER, self.spline_lines_vbo);
-		    gl::BufferData(
-			gl::ARRAY_BUFFER,
-			(self.spline_points.len() * std::mem::size_of::<glm::Vec3>()) as gl::types::GLsizeiptr,
-			self.spline_points.as_ptr() as *const gl::types::GLvoid,
-			gl::STREAM_DRAW);
-		}
+	    unsafe {
+		gl::BindBuffer(gl::ARRAY_BUFFER, self.spline_lines_vbo);
+		gl::BufferData(
+		    gl::ARRAY_BUFFER,
+		    (self.spline_points.len() * std::mem::size_of::<glm::Vec3>()) as gl::types::GLsizeiptr,
+		    self.spline_points.as_ptr() as *const gl::types::GLvoid,
+		    gl::STREAM_DRAW);
+
+		gl::BindBuffer(gl::ARRAY_BUFFER, self.spline_color_vbo);
+		gl::BufferData(
+		    gl::ARRAY_BUFFER,
+		    (spline_colors.len() * std::mem::size_of::<glm::Vec4>()) as gl::types::GLsizeiptr,
+		    spline_colors.as_ptr() as *const gl::types::GLvoid,
+		    gl::STREAM_DRAW);
+	    }
 
 	}
 	
@@ -168,21 +222,32 @@ impl SplineState {
 		(self.control_points.len() * std::mem::size_of::<glm::Vec3>()) as gl::types::GLsizeiptr,
 		self.control_points.as_ptr() as *const gl::types::GLvoid,
 		gl::STREAM_DRAW);
+
+	    gl::BindBuffer(gl::ARRAY_BUFFER, self.point_color_vbo);
+	    gl::BufferData(
+		gl::ARRAY_BUFFER,
+		(self.point_colors.len() * std::mem::size_of::<glm::Vec4>()) as gl::types::GLsizeiptr,
+		self.point_colors.as_ptr() as *const gl::types::GLvoid,
+		gl::STREAM_DRAW);
 	}
     }
-
     
+    /* if self.point_colors.len() != self.control_points.len() ||
+	self.spline_points.len() != self.spline_colors.len() {
+	    println!("Discrepancy found, num point_colors = {}, num control_poins = {},"
+		     "num spline_points = {}, num spline colors = {}",
+		     self.point_colors.len(), self.control_points.len(),
+		     self.spline_points.len(), self.spline_colors.len());
+	} */
 }
 
 
-pub fn spline_screen_to_world_transform(spline:  &mut SplineState, spline_coefficients: &SplineCoefficients) {
-    // TODO (just flip y-coordinates)
-
+pub fn spline_screen_to_world_transform(spline: &mut SplineState) {
     for i in 0..spline.control_points.len() {
 	spline.control_points[i][1] = - spline.control_points[i][1];
     }
 
-    spline.update_gpu_state(&spline_coefficients);
+    spline.update_gpu_state();
 }
 
 pub fn draw_spline_lines(spline_state: &SplineState ) {
@@ -190,8 +255,10 @@ pub fn draw_spline_lines(spline_state: &SplineState ) {
 	gl::BindVertexArray(spline_state.spline_lines_vao);
 	gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
 	gl::EnableVertexAttribArray(0);
+	gl::EnableVertexAttribArray(1);
 	gl::LineWidth(2.0);
 
+	println!("Drawing {} lines", spline_state.spline_points.len());
 	gl::DrawArrays(gl::LINE_STRIP, 0, spline_state.spline_points.len() as i32);
     }
 }
@@ -201,12 +268,12 @@ pub fn draw_control_points(spline_state: &SplineState ) {
 	gl::BindVertexArray(spline_state.control_points_vao);
 	gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
 	gl::EnableVertexAttribArray(0);
+	gl::EnableVertexAttribArray(1);
 	gl::PointSize(6.0);
 
 	gl::DrawArrays(gl::POINTS, 0, spline_state.control_points.len() as i32);
     }
 }
-
 
 pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut SplineState) {
     
@@ -220,7 +287,8 @@ pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut
 	
 	if spline_state.control_points.len() == 0 {
 	    for _ in 0..(SPLINE_DEGREE+1) {
-		spline_state.control_points.push(new_point);
+		// spline_state.control_points.push(new_point);
+		spline_state.add_control_point(new_point);
 	    }
 	    
 	} else if length(new_point - spline_state.control_points[spline_state.control_points.len() - 1] )
@@ -237,7 +305,8 @@ pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut
 		// 	 spline_state.points[spline_state.points.len() - 1]);
 
 		
-		spline_state.control_points.push(new_point);
+		// spline_state.control_points.push(new_point);
+		spline_state.add_control_point(new_point);
 	    }
 	
     }

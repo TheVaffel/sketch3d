@@ -16,6 +16,7 @@ use crate::lineobjects;
 use crate::splinedraw;
 use crate::cyllinder;
 use crate::utils;
+use crate::edit;
 
 pub struct MouseState {
     pub pos: glm::Vec2,
@@ -25,7 +26,7 @@ pub struct MouseState {
 
 pub enum ProgramState {
     Draw,
-    Edit(cyllinder::GeneralizedCyllinder),
+    Edit,
 }
 
 
@@ -56,6 +57,36 @@ pub fn setup_objects() -> ModelerState {
     ModelerState { objects: vec![/*cyllinder, */ cone, sphere, cube, triangle,],}
 }
 
+fn handle_draw_operation(mut spline_state : splinedraw::SplineState,
+			 cyllinders : &mut Vec<cyllinder::GeneralizedCyllinder>,
+			 mouse_state : &MouseState,
+			 key_state : &KeyState) -> (ProgramState, splinedraw::SplineState) {
+    if key_state.enter {
+	println!("Enter state true");
+	if spline_state.control_points.len() > 2 {
+	    let cyllinder_object = cyllinder::create_cyllinder(0.3, 2.0, 5, 5, spline_state);
+	    
+	    cyllinders.push(cyllinder_object);
+	    
+	    return (ProgramState::Edit, splinedraw::SplineState::new());
+	}
+    } else {
+	splinedraw::handle_spline_draw(&mouse_state, &mut spline_state);
+    }
+
+    
+    (ProgramState::Draw, spline_state)
+}
+
+fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
+			 proj : &glm::Mat4, mouse_state : &MouseState,
+			 key_state : &KeyState) {
+
+    let selected_point = edit::select_point(mouse_state.pos,
+					    &cyllinder.spline.control_points,
+					    proj, 0.01);
+}
+
 pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 
     let mut mouse_state = MouseState { pos: glm::vec2(0.0, 0.0),
@@ -64,8 +95,6 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
     let mut key_state = KeyState { enter: false, };
 
     let mut spline_state = splinedraw::SplineState::new();
-
-    let spline_coefficients = splinedraw::make_spline_coefficients();
 
     let mut line_objects = Vec::new();
     for i in 0..modeler_state.objects.len() {
@@ -95,9 +124,14 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 	&CString::new(include_str!("shaders/simple.frag")).unwrap()
     ).unwrap();
 
-    let line_program = shaders::create_simple_shader(
+    let screen_line_program = shaders::create_simple_shader(
 	&CString::new(include_str!("shaders/screen_line.vert")).unwrap(),
 	&CString::new(include_str!("shaders/screen_line.frag")).unwrap()
+    ).unwrap();
+
+    let world_line_program = shaders::create_simple_shader(
+	&CString::new(include_str!("shaders/line.vert")).unwrap(),
+	&CString::new(include_str!("shaders/line.frag")).unwrap()
     ).unwrap();
 
     
@@ -126,6 +160,8 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 
 	
     let mut count = 0;
+
+    let mut program_state = ProgramState::Draw;
     
     // Loop until the user closes the window
     while !glfw_state.window.should_close() {
@@ -173,6 +209,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 		
 		cyllinder::draw_cyllinder(&cyllinders[i],
 					  &shader_program,
+					  &world_line_program,
 					  &trans);
 		
 		/* 
@@ -253,31 +290,29 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
             }
         }
 
-	if key_state.enter {
-	    println!("Enter state true");
-	    if spline_state.spline_points.len() > 0 {
-		let cyllinder_object = cyllinder::create_cyllinder(0.3, 2.0, 5, 5, spline_state, &spline_coefficients);
-		
-		// line_objects.push(cyllinder_object.line_object);
-		// modeler_state.objects.push(cyllinder_object.object);
+	match program_state  {
+	    ProgramState::Draw => {
+		let (t_program_state, t_spline_state) = handle_draw_operation(spline_state, &mut cyllinders,
+									      &mouse_state, &key_state);
 
-		cyllinders.push(cyllinder_object);
+		program_state = t_program_state;
+		spline_state = t_spline_state;
 		
-		spline_state = splinedraw::SplineState::new();
+		screen_line_program.activate();
+		spline_state.update_gpu_state();
+		splinedraw::draw_spline_lines(&spline_state);
+	    },
+	    ProgramState::Edit => {
+		handle_edit_operation(&mut cyllinders[0], &proj, &mouse_state, &key_state);
 	    }
-	} else {
-	    // println!("Handling draw");
-	    splinedraw::handle_spline_draw(&mouse_state, &mut spline_state);
 	}
+
 	
-	line_program.activate();
-	spline_state.update_gpu_state(&spline_coefficients);
-	splinedraw::draw_spline_lines(&spline_state);
 	
         // Swap front and back buffers
         glfw_state.window.swap_buffers();
 
-	std::thread::sleep(std::time::Duration::from_millis(10));
+	std::thread::sleep(std::time::Duration::from_millis(100));
 	
     }
 }
