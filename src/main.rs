@@ -68,7 +68,7 @@ fn main() {
 
     let glfw_state = init_glfw();
     
-    let mut models = program::setup_objects();
+    let models = program::setup_objects();
     
     program::run_loop(glfw_state, models);
 }

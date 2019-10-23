@@ -78,7 +78,7 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
 	gl::LineWidth(2.0);
 
 	gl::BindVertexArray(generalized_cyllinder.line_object.vao);
-	println!("Number of lines to draw: {}", generalized_cyllinder.line_object.indices.len());
+	// println!("Number of lines to draw: {}", generalized_cyllinder.line_object.indices.len());
 	gl::DrawElements(
 	    gl::LINES,
 	    generalized_cyllinder.line_object.indices.len() as gl::types::GLsizei,
@@ -113,9 +113,7 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
 }
 
 pub fn create_cyllinder(radius : f32,
-			length: f32,
 			circ_resolution: usize,
-			len_resolution : usize,
 			mut spline_state : splinedraw::SplineState) -> GeneralizedCyllinder {
     
     let len_resolution = spline_state.spline_points.len() - 1;

@@ -21,7 +21,14 @@ use crate::edit;
 pub struct MouseState {
     pub pos: glm::Vec2,
     pub button1_pressed: bool,
+    pub button1_was_pressed: bool,
     pub in_window: bool,
+}
+
+impl MouseState {
+    fn tick(self : &mut MouseState) {
+	self.button1_was_pressed = self.button1_pressed;
+    }
 }
 
 pub enum ProgramState {
@@ -64,7 +71,7 @@ fn handle_draw_operation(mut spline_state : splinedraw::SplineState,
     if key_state.enter {
 	println!("Enter state true");
 	if spline_state.control_points.len() > 2 {
-	    let cyllinder_object = cyllinder::create_cyllinder(0.3, 2.0, 5, 5, spline_state);
+	    let cyllinder_object = cyllinder::create_cyllinder(0.3, 5, spline_state);
 	    
 	    cyllinders.push(cyllinder_object);
 	    
@@ -80,19 +87,66 @@ fn handle_draw_operation(mut spline_state : splinedraw::SplineState,
 
 fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
 			 proj : &glm::Mat4, mouse_state : &MouseState,
-			 key_state : &KeyState) {
+			 _key_state : &KeyState, edit_state : &mut edit::EditState) {
+    
+    if mouse_state.button1_pressed {
+	
+	
+	let selected_point_ind = edit::select_point(mouse_state.pos,
+						    &cyllinder.spline.control_points,
+						    proj, 0.03);
 
-    let selected_point = edit::select_point(mouse_state.pos,
-					    &cyllinder.spline.control_points,
-					    proj, 0.01);
+	if selected_point_ind < 0 {
+	    for i in &edit_state.selected_indices {
+		cyllinder.spline.point_colors[*i] = glm::vec4(0.0, 0.0, 0.0, 1.0);
+	    }
+	    edit_state.selected_indices.clear();
+	    cyllinder.spline.update_gpu_state();
+	    return;
+	}
+	
+	let mut already_chosen = false;
+	for i in &edit_state.selected_indices {
+	    if *i == selected_point_ind as usize {
+		already_chosen = true;
+		break;
+	    }
+	}
+	
+	if !mouse_state.button1_was_pressed {
+	    if already_chosen {
+		edit_state.ref_point = edit::normalize_point(mouse_state.pos);
+	    }
+	} else {
+	    let new_mpoint = edit::normalize_point(mouse_state.pos);
+	    let diff = new_mpoint - edit_state.ref_point;
+	    for i in &edit_state.selected_indices {
+		cyllinder.spline.control_points[*i] =
+		    cyllinder.spline.control_points[*i] + glm::vec3(diff.x, diff.y, 0.0);
+	    }
+	    edit_state.ref_point = new_mpoint;
+	}
+	
+	if selected_point_ind >= 0 && !already_chosen {	
+	    cyllinder.spline.point_colors[selected_point_ind as usize] = glm::vec4(1.0, 0.0, 0.0, 1.0);
+	    edit_state.selected_indices.push(selected_point_ind as usize);
+	    cyllinder.spline.update_gpu_state();
+	}
+    }
+
+    
 }
 
-pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
+pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 
     let mut mouse_state = MouseState { pos: glm::vec2(0.0, 0.0),
 				       button1_pressed: false,
+				       button1_was_pressed: false,
 				       in_window: true, };
     let mut key_state = KeyState { enter: false, };
+
+    let mut edit_state = edit::EditState { selected_indices : Vec::new(),
+					   ref_point : glm::vec2(0.0, 0.0)};
 
     let mut spline_state = splinedraw::SplineState::new();
 
@@ -120,8 +174,8 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
     // Load shaders
 
     let shader_program = shaders::create_simple_shader(
-	&CString::new(include_str!("shaders/simple.vert")).unwrap(),
-	&CString::new(include_str!("shaders/simple.frag")).unwrap()
+	&CString::new(include_str!("shaders/body.vert")).unwrap(),
+	&CString::new(include_str!("shaders/body.frag")).unwrap()
     ).unwrap();
 
     let screen_line_program = shaders::create_simple_shader(
@@ -159,14 +213,14 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
     let small_translation = glm::vec4(0.0, 0.0, -0.08, 0.0); */
 
 	
-    let mut count = 0;
+    let mut _count = 0;
 
     let mut program_state = ProgramState::Draw;
     
     // Loop until the user closes the window
     while !glfw_state.window.should_close() {
 
-	count += 1;
+	_count += 1;
 	
 	let r :f32 = 2.0;
 	// let phi : f32 = 0.5;
@@ -192,7 +246,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 
 	shader_program.activate();
 	
-	unsafe {
+	// unsafe {
 	    // for i in 0..modeler_state.objects.len() {
 	    for i in 0..cyllinders.len() {
 		let model_trans = glm::ext::translate(&glm::Matrix4::one(),
@@ -250,13 +304,15 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 		    line_objects[i].indices.len() as gl::types::GLsizei,
 		    gl::UNSIGNED_INT,
 		    std::ptr::null()); */
-	    }
+	    // }
 	}
 	
 	// Poll for and process events
 	glfw_state.glfw.poll_events();
 
 	let flushed_events = glfw::flush_messages(&glfw_state.events);
+
+	mouse_state.tick();
 	
         for (_, event) in flushed_events {
             // println!("{:?}", event);
@@ -303,7 +359,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
 		splinedraw::draw_spline_lines(&spline_state);
 	    },
 	    ProgramState::Edit => {
-		handle_edit_operation(&mut cyllinders[0], &proj, &mouse_state, &key_state);
+		handle_edit_operation(&mut cyllinders[0], &proj, &mouse_state, &key_state, &mut edit_state);
 	    }
 	}
 
@@ -312,7 +368,7 @@ pub fn run_loop(mut glfw_state: GLFWState, mut modeler_state: ModelerState) {
         // Swap front and back buffers
         glfw_state.window.swap_buffers();
 
-	std::thread::sleep(std::time::Duration::from_millis(100));
+	std::thread::sleep(std::time::Duration::from_millis(17));
 	
     }
 }

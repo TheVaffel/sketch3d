@@ -2,8 +2,8 @@ extern crate glfw;
 extern crate glm;
 extern crate gl;
 
-use crate::settings;
 use crate::program;
+use crate::edit;
 
 use glm::builtin::*;
 
@@ -59,7 +59,7 @@ lazy_static! {
 
 pub struct SplineState {
     pub control_points    : Vec<glm::Vec3>,
-    point_colors      : Vec<glm::Vec4>, // Colors of control points
+    pub point_colors      : Vec<glm::Vec4>, // Colors of control points
     pub spline_points     : Vec<glm::Vec3>,
     spline_lines_vao       : gl::types::GLuint,
     spline_lines_vbo       : gl::types::GLuint,
@@ -167,6 +167,7 @@ impl SplineState {
 		self.spline_points.push(self.control_points[0]);
 		spline_colors.push(self.point_colors[0]);
 	    }
+	    
 	    // Build from start_cp + dt, start_cp + 2 * dt ... start_cp + 1
 	    // NB: Assumes start_cp is multiple of 
 	    let start_cp = self.spline_points.len() / SPLINE_RESOLUTION;
@@ -187,6 +188,8 @@ impl SplineState {
 		    cp = cp + self.point_colors[curr_point + j] *
 			SPLINE_COEFFICIENTS.coefficients[b_ind][j];
 		}
+
+		cp[3] = 1.0;
 
 		self.spline_points.push(pp);
 		spline_colors.push(cp);
@@ -258,7 +261,7 @@ pub fn draw_spline_lines(spline_state: &SplineState ) {
 	gl::EnableVertexAttribArray(1);
 	gl::LineWidth(2.0);
 
-	println!("Drawing {} lines", spline_state.spline_points.len());
+	// println!("Drawing {} lines", spline_state.spline_points.len());
 	gl::DrawArrays(gl::LINE_STRIP, 0, spline_state.spline_points.len() as i32);
     }
 }
@@ -278,18 +281,15 @@ pub fn draw_control_points(spline_state: &SplineState ) {
 pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut SplineState) {
     
         if mouse_state.button1_pressed && mouse_state.in_window {
-	let clone = mouse_state.pos.clone();
-	let new_point = glm::vec3(clone.x, clone.y, 0.0) /
-	    (glm::vec3(settings::WINDOW_WIDTH as f32,
-		       - (settings::WINDOW_HEIGHT as f32), 1.0) / 2.0)
-	    + glm::vec3(- 1.0, 1.0, 0.0);
-
-	
-	if spline_state.control_points.len() == 0 {
-	    for _ in 0..(SPLINE_DEGREE+1) {
-		// spline_state.control_points.push(new_point);
-		spline_state.add_control_point(new_point);
-	    }
+	    let clone = mouse_state.pos.clone();
+	    let new_point = edit::normalize_point(clone);
+	    let new_point  = glm::vec3(new_point.x, new_point.y, 0.0);
+	    
+	    if spline_state.control_points.len() == 0 {
+		for _ in 0..(SPLINE_DEGREE+1) {
+		    // spline_state.control_points.push(new_point);
+		    spline_state.add_control_point(new_point);
+		}
 	    
 	} else if length(new_point - spline_state.control_points[spline_state.control_points.len() - 1] )
 	    >= LINE_LIMIT * 0.9 &&
