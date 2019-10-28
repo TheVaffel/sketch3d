@@ -3,8 +3,8 @@ use std::usize;
 
 use crate::Object;
 
-pub fn create_object(vertices: Vec<f32>,
-		     indices: Vec<u32>) -> Object {
+pub fn create_vbo(vertices: &Vec<f32>)
+                            -> gl::types::GLuint {
     let mut vbo: gl::types::GLuint = 0;
     unsafe {
 	gl::GenBuffers(1, &mut vbo);
@@ -13,33 +13,56 @@ pub fn create_object(vertices: Vec<f32>,
 	    gl::ARRAY_BUFFER,
 	    (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
 	    vertices.as_ptr() as *const gl::types::GLvoid,
-	    gl::STATIC_DRAW
+	    gl::DYNAMIC_DRAW
 	);
     }
 
+    vbo
+}
+
+pub fn create_vao(attrib_sizes : Vec<u32>)
+                  -> gl::types::GLuint {
     let mut vao: gl::types::GLuint = 0;
     unsafe {
-	gl::GenVertexArrays(1, &mut vao);
-	gl::BindVertexArray(vao);
-	gl::VertexAttribPointer(
-	    0, 3, gl::FLOAT,
-	    gl::FALSE, (3 * std::mem::size_of::<f32>()) as gl::types::GLint,
-	    std::ptr::null());
-	gl::EnableVertexAttribArray(0);
-    }
-    
+        gl::GenVertexArrays(1, &mut vao);
+        gl::BindVertexArray(vao);
 
+        for (index, elem) in attrib_sizes.iter().enumerate() {
+            gl::VertexAttribPointer(
+                index as u32, *elem as i32, gl::FLOAT,
+                gl::FALSE, (*elem as usize * std::mem::size_of::<f32>()) as gl::types::GLint,
+                std::ptr::null());
+        
+            gl::EnableVertexAttribArray(index as u32);
+                
+        }
+    }
+
+    vao
+}
+
+pub fn create_ebo(indices : &Vec<u32>)
+                  -> gl::types::GLuint {
     let mut ebo: gl::types::GLuint = 0;
     unsafe {
-	gl::GenBuffers(1, &mut ebo);
-	gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
-	gl::BufferData(
-	    gl::ELEMENT_ARRAY_BUFFER,
-	    (indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
-	    indices.as_ptr() as *const gl::types::GLvoid,
-	    gl::STATIC_DRAW
-	);
+        gl::GenBuffers(1, &mut ebo);
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            (indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
+            indices.as_ptr() as *const gl::types::GLvoid,
+            gl::DYNAMIC_DRAW
+        );
     }
+
+    ebo
+}
+
+pub fn create_object(vertices: Vec<f32>,
+		     indices: Vec<u32>) -> Object {
+    let vbo = create_vbo(&vertices);
+    let vao = create_vao(vec![3]);
+    let ebo = create_ebo(&indices);
 
     unsafe {
 	// gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
@@ -60,6 +83,26 @@ impl Drop for Object {
     }
 }
 
+
+impl Object {
+    pub fn update_gpu_state(self : &mut Object) {
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (self.vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+                self.vertices.as_ptr() as *const gl::types::GLvoid,
+                gl::DYNAMIC_DRAW);
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (self.indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
+                self.indices.as_ptr() as *const gl::types::GLvoid,
+                gl::DYNAMIC_DRAW);
+        }
+    }
+}
 
 
 pub fn create_cube_object(side: f32) -> Object {

@@ -15,6 +15,40 @@ pub struct LineObject {
     pub indices: Vec<u32>,
     pub all_indices: Vec<u32>,
     pub all_vao: gl::types::GLuint,
+    pub all_ebo: gl::types::GLuint,
+}
+
+impl LineObject {
+    pub fn update(self : &mut LineObject, vertices : Vec<f32>, indices : &Vec<u32>) {
+        let (indices, all_indices) = get_lineobject_indices(&vertices, &indices);
+        
+        self.indices = indices;
+        self.vertices = vertices;
+        self.all_indices = all_indices;
+
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (self.vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+                self.vertices.as_ptr() as *const gl::types::GLvoid,
+                gl::DYNAMIC_DRAW);
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (self.indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
+                self.indices.as_ptr() as *const gl::types::GLvoid,
+                gl::DYNAMIC_DRAW);
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.all_ebo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (self.all_indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
+                self.all_indices.as_ptr() as *const gl::types::GLvoid,
+                gl::DYNAMIC_DRAW);
+        }
+    }
 }
 
 struct HalfEdge {
@@ -82,8 +116,33 @@ fn get_angle(h_edge_num: usize, vertices: &Vec<f32>, half_edges: &Vec<HalfEdge>)
 
 pub fn create_line_object(old_vertices: &Vec<f32>,
 			  old_indices:  &Vec<u32>) -> LineObject {
+
     
-    let line_points : Vec<f32> = old_vertices.clone();
+    let (indices, all_indices) =
+        get_lineobject_indices(old_vertices,
+                               old_indices);
+    
+    
+    let vbo = objects::create_vbo(&old_vertices);
+
+    let sharp_vao = objects::create_vao(vec![3]);
+    let sharp_ebo = objects::create_ebo(&indices);
+
+    let all_vao = objects::create_vao(vec![3]); 
+    let all_ebo = objects::create_ebo(&all_indices);
+    
+
+    
+    LineObject { vbo: vbo, vao: sharp_vao, ebo: sharp_ebo,
+                 vertices : old_vertices.clone(), indices : indices,
+                 all_indices : all_indices, all_vao : all_vao,
+                 all_ebo : all_ebo }
+
+}
+
+fn get_lineobject_indices(old_vertices: &Vec<f32>,
+                          old_indices : &Vec<u32>)
+                         -> (Vec<u32>, Vec<u32>) {
     let mut indices: Vec<u32> = Vec::new();
     let mut all_indices: Vec<u32> = Vec::new();
     let mut half_edges: Vec<HalfEdge> =
@@ -130,43 +189,16 @@ pub fn create_line_object(old_vertices: &Vec<f32>,
 
     for i in 0..half_edges.len() {
 	if half_edges[i].ind0 < half_edges[i].ind1 {
-	    let ang = get_angle(i, &line_points, &half_edges);
+	    let ang = get_angle(i, &old_vertices, &half_edges);
 
 	    if ang.abs() < f32::consts::PI * 3.0 / 5.0 {
 		indices.push(half_edges[i].ind0);
 		indices.push(half_edges[i].ind1);
 	    }
 	}
-	
     }
 
-    println!("all_indices size: {}", all_indices.len());
-    
-    
-    let lp2 = line_points.clone();
-    
-    let object = objects::create_object(line_points, indices);
-
-    
-    let object2 = objects::create_object(lp2, all_indices);
-
-    
-    // std::cout << "all_indices size: " << all_indices.size() << std::endl;
-    
-    // LineObject* lineObject = new LineObject();
-    // lineObject->vbo = object->vbo;
-    // lineObject->ebo = object->ebo;
-    // lineObject->vao = object->vao;
-    // lineObject->all_vao = object2->vao;
-    // lineObject->vertices = linePoints;
-    // lineObject->indices = indices;
-    // lineObject->all_indices = all_indices;
-
-    let line_object = LineObject {vbo: object.vbo, vao: object.vao, ebo: object.ebo,
-				  all_vao: object2.vao, vertices: object.vertices, indices: object.indices,
-				  all_indices: object2.indices};
-
-    line_object
+    (indices, all_indices)
 }
 
 

@@ -10,9 +10,23 @@ use crate::Object;
 use std::f32;
 
 pub struct GeneralizedCyllinder {
+    radius : f32,
+    circ_resolution : usize,
     pub object : Object,
     pub line_object : lineobjects::LineObject,
     pub spline : splinedraw::SplineState,
+}
+
+impl GeneralizedCyllinder {
+    pub fn update_mesh(self : &mut GeneralizedCyllinder) {
+        let (vertices, indices) = get_cyllinder_values(self.radius, self.circ_resolution, &self.spline);
+
+        self.object.vertices = vertices;
+        self.object.indices = indices;
+        
+        self.object.update_gpu_state();
+        self.line_object.update(self.object.vertices.clone(), &self.object.indices);
+    }
 }
 
 pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
@@ -112,10 +126,10 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
     }
 }
 
-pub fn create_cyllinder(radius : f32,
-			circ_resolution: usize,
-			mut spline_state : splinedraw::SplineState) -> GeneralizedCyllinder {
-    
+pub fn get_cyllinder_values(radius : f32,
+                            circ_resolution: usize,
+                            spline_state : &splinedraw::SplineState)
+                            -> (Vec<f32>, Vec<u32>) {
     let len_resolution = spline_state.spline_points.len() - 1;
     let icirc_resolution = circ_resolution as u32;
     
@@ -220,7 +234,6 @@ pub fn create_cyllinder(radius : f32,
 					    glm::vec3(spline_state.spline_points[ai].x,
 						      spline_state.spline_points[ai].y,
 						      0.0));
-	let z_dir = glm::vec3(z_dir.x, -z_dir.y, z_dir.z);
 	let y_dir = glm::vec3(-z_dir.y, z_dir.x, 0.0);
 	let x_dir = glm::vec3(0.0, 0.0, 1.0);
 	
@@ -229,7 +242,7 @@ pub fn create_cyllinder(radius : f32,
 	    let theta = ij as f32 * f32::consts::PI * 2.0 / (circ_resolution * 2) as f32;
 	    
 	    let vertex = glm::vec3(spline_state.spline_points[ai + 1].x,
-				   -spline_state.spline_points[ai + 1].y,
+				   spline_state.spline_points[ai + 1].y,
 				   0.0) * base_length +
 		y_dir * theta.sin() * radius +
 		x_dir * theta.cos() * radius;
@@ -248,7 +261,7 @@ pub fn create_cyllinder(radius : f32,
 
 	let centerxy = if k == 0 { spline_state.spline_points[0] }
 	else { spline_state.spline_points[spline_state.spline_points.len() - 1] } ;
-	let center = glm::vec3(centerxy.x, -centerxy.y, 0.0) * base_length;
+	let center = glm::vec3(centerxy.x, centerxy.y, 0.0) * base_length;
 
 	let z_dirxy = if k == 0 { spline_state.spline_points[0] -
 				  spline_state.spline_points[6] }
@@ -257,7 +270,7 @@ pub fn create_cyllinder(radius : f32,
 
 	println!("Z dirxy: {:?}", z_dirxy);
 
-	let z_dir = glm::builtin::normalize(glm::vec3(z_dirxy.x, -z_dirxy.y, 0.0));
+	let z_dir = glm::builtin::normalize(glm::vec3(z_dirxy.x, z_dirxy.y, 0.0));
 	let y_dir = glm::vec3(- factor * z_dir.y, factor * z_dir.x, 0.0);
 	let x_dir = glm::vec3(0.0, 0.0, 1.0);
 	
@@ -286,11 +299,24 @@ pub fn create_cyllinder(radius : f32,
 	vertices[vert_base + 3 * (num_end_vertices - 1) + 2] = vertex.z;
     }
 
+    (vertices, indices)
+}
+
+pub fn create_cyllinder(radius : f32,
+			circ_resolution: usize,
+			mut spline_state : splinedraw::SplineState) -> GeneralizedCyllinder {
+    
     splinedraw::spline_screen_to_world_transform(&mut spline_state);
     
+    let (vertices, indices) = get_cyllinder_values(radius, circ_resolution, &spline_state);
+
     GeneralizedCyllinder {
 	line_object: lineobjects::create_line_object(&vertices, &indices),
 	object: objects::create_object(vertices, indices),
-	spline: spline_state }
+	spline: spline_state,
+        radius,
+        circ_resolution}
 	
 }
+
+

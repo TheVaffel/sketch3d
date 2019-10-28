@@ -69,9 +69,8 @@ fn handle_draw_operation(mut spline_state : splinedraw::SplineState,
 			 mouse_state : &MouseState,
 			 key_state : &KeyState) -> (ProgramState, splinedraw::SplineState) {
     if key_state.enter {
-	println!("Enter state true");
 	if spline_state.control_points.len() > 2 {
-	    let cyllinder_object = cyllinder::create_cyllinder(0.3, 5, spline_state);
+	    let cyllinder_object = cyllinder::create_cyllinder(0.1, 5, spline_state);
 	    
 	    cyllinders.push(cyllinder_object);
 	    
@@ -146,7 +145,8 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
     let mut key_state = KeyState { enter: false, };
 
     let mut edit_state = edit::EditState { selected_indices : Vec::new(),
-					   ref_point : glm::vec2(0.0, 0.0)};
+					   ref_point : glm::vec2(0.0, 0.0),
+                                           state : edit::EditEnum::Selecting};
 
     let mut spline_state = splinedraw::SplineState::new();
 
@@ -359,7 +359,8 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 		splinedraw::draw_spline_lines(&spline_state);
 	    },
 	    ProgramState::Edit => {
-		handle_edit_operation(&mut cyllinders[0], &proj, &mouse_state, &key_state, &mut edit_state);
+		edit::handle_edit_operation(&mut cyllinders[0], &proj,
+                                            &mouse_state, &key_state, &mut edit_state);
 	    }
 	}
 
