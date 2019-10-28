@@ -50,6 +50,17 @@ pub fn create_object(vertices: Vec<f32>,
     Object { vbo, ebo, vao, vertices: vertices, indices: indices } 
 }
 
+impl Drop for Object {
+    fn drop(self : &mut Object) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.vbo);
+            gl::DeleteBuffers(1, &self.ebo);
+            gl::DeleteVertexArrays(1, &self.vao);
+        }
+    }
+}
+
+
 
 pub fn create_cube_object(side: f32) -> Object {
     let cube_numbers = [0, 1, 3, 2, 6, 4, 5, 7];
