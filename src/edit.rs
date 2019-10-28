@@ -2,10 +2,20 @@
 extern crate glm;
 
 use crate::settings;
+use crate::program;
+use crate::cyllinder;
+
+static SELECTION_SENSITIVITY : f32 = 0.03;
+
+pub enum EditEnum {
+    Selecting,
+    Dragging
+}
 
 pub struct EditState {
     pub selected_indices: Vec<usize>,
     pub ref_point: glm::Vec2,
+    pub state : EditEnum,
 }
 
 pub fn normalize_point(p : glm::Vec2) -> glm::Vec2 {
