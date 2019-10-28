@@ -234,14 +234,6 @@ impl SplineState {
 		gl::STREAM_DRAW);
 	}
     }
-    
-    /* if self.point_colors.len() != self.control_points.len() ||
-	self.spline_points.len() != self.spline_colors.len() {
-	    println!("Discrepancy found, num point_colors = {}, num control_poins = {},"
-		     "num spline_points = {}, num spline colors = {}",
-		     self.point_colors.len(), self.control_points.len(),
-		     self.spline_points.len(), self.spline_colors.len());
-	} */
 }
 
 
@@ -261,7 +253,6 @@ pub fn draw_spline_lines(spline_state: &SplineState ) {
 	gl::EnableVertexAttribArray(1);
 	gl::LineWidth(2.0);
 
-	// println!("Drawing {} lines", spline_state.spline_points.len());
 	gl::DrawArrays(gl::LINE_STRIP, 0, spline_state.spline_points.len() as i32);
     }
 }
@@ -287,7 +278,6 @@ pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut
 	    
 	    if spline_state.control_points.len() == 0 {
 		for _ in 0..(SPLINE_DEGREE+1) {
-		    // spline_state.control_points.push(new_point);
 		    spline_state.add_control_point(new_point);
 		}
 	    
@@ -300,12 +290,7 @@ pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut
 		let v2 = vv / length(vv) * LINE_LIMIT;
 		let new_point = spline_state.control_points[spline_state.control_points.len() - 1] + v2;
 		
-		println!("Adding a new point {:?}", new_point);
-		// println!("Previous point was {:?}",
-		// 	 spline_state.points[spline_state.points.len() - 1]);
-
-		
-		// spline_state.control_points.push(new_point);
+	
 		spline_state.add_control_point(new_point);
 	    }
 	

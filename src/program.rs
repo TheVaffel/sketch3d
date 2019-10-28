@@ -84,58 +84,6 @@ fn handle_draw_operation(mut spline_state : splinedraw::SplineState,
     (ProgramState::Draw, spline_state)
 }
 
-fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
-			 proj : &glm::Mat4, mouse_state : &MouseState,
-			 _key_state : &KeyState, edit_state : &mut edit::EditState) {
-    
-    if mouse_state.button1_pressed {
-	
-	
-	let selected_point_ind = edit::select_point(mouse_state.pos,
-						    &cyllinder.spline.control_points,
-						    proj, 0.03);
-
-	if selected_point_ind < 0 {
-	    for i in &edit_state.selected_indices {
-		cyllinder.spline.point_colors[*i] = glm::vec4(0.0, 0.0, 0.0, 1.0);
-	    }
-	    edit_state.selected_indices.clear();
-	    cyllinder.spline.update_gpu_state();
-	    return;
-	}
-	
-	let mut already_chosen = false;
-	for i in &edit_state.selected_indices {
-	    if *i == selected_point_ind as usize {
-		already_chosen = true;
-		break;
-	    }
-	}
-	
-	if !mouse_state.button1_was_pressed {
-	    if already_chosen {
-		edit_state.ref_point = edit::normalize_point(mouse_state.pos);
-	    }
-	} else {
-	    let new_mpoint = edit::normalize_point(mouse_state.pos);
-	    let diff = new_mpoint - edit_state.ref_point;
-	    for i in &edit_state.selected_indices {
-		cyllinder.spline.control_points[*i] =
-		    cyllinder.spline.control_points[*i] + glm::vec3(diff.x, diff.y, 0.0);
-	    }
-	    edit_state.ref_point = new_mpoint;
-	}
-	
-	if selected_point_ind >= 0 && !already_chosen {	
-	    cyllinder.spline.point_colors[selected_point_ind as usize] = glm::vec4(1.0, 0.0, 0.0, 1.0);
-	    edit_state.selected_indices.push(selected_point_ind as usize);
-	    cyllinder.spline.update_gpu_state();
-	}
-    }
-
-    
-}
-
 pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 
     let mut mouse_state = MouseState { pos: glm::vec2(0.0, 0.0),

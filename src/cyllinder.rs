@@ -268,7 +268,6 @@ pub fn get_cyllinder_values(radius : f32,
 	else {spline_state.spline_points[len_resolution] -
 	      spline_state.spline_points[len_resolution - 6] };
 
-	println!("Z dirxy: {:?}", z_dirxy);
 
 	let z_dir = glm::builtin::normalize(glm::vec3(z_dirxy.x, z_dirxy.y, 0.0));
 	let y_dir = glm::vec3(- factor * z_dir.y, factor * z_dir.x, 0.0);
