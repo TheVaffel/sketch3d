@@ -4,6 +4,7 @@ extern crate glm;
 use crate::settings;
 use crate::program;
 use crate::cyllinder;
+use crate::laplacian;
 
 static SELECTION_SENSITIVITY : f32 = 0.03;
 
@@ -86,6 +87,8 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
                 mouse_state.button1_was_pressed &&
                 edit_state.selected_indices.len() > 0 {
                     edit_state.state = EditEnum::Dragging;
+
+		    laplacian::setup_system(&cyllinder.spline.control_points);
                 }
         },
         EditEnum::Dragging => {

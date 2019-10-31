@@ -15,6 +15,7 @@ mod splinedraw;
 mod cyllinder;
 mod edit;
 mod utils;
+mod laplacian;
 
 pub struct Object {
     vao: gl::types::GLuint, 
