@@ -14,6 +14,16 @@ static SPLINE_RESOLUTION: usize = 5; // Points per control point
 static SPLINE_DEGREE:     usize = 3;
 
 
+
+fn lookup_pad<T: Copy>(vec : &Vec<T>, n : usize) -> T {
+    if n >= vec.len() {
+	vec[vec.len() - 1]
+    } else {
+	vec[n]
+    }
+}
+
+
 pub struct SplineCoefficients {
     coefficients : Vec<Vec<f32> >
 }
@@ -153,39 +163,34 @@ impl SplineState {
     pub fn update_gpu_state(self: &mut SplineState) {
 
 	if self.control_points.len() >= 2 {
-	    for _i in 0..SPLINE_DEGREE {
+	    /* for _i in 0..SPLINE_DEGREE {
 		// self.control_points.push(self.control_points[self.control_points.len() - 1]);
 		self.add_control_point(self.control_points[self.control_points.len() - 1]);
-	    }
+	    } */
 	    
 	    self.spline_points.clear();
 	    // let mut spline_points : Vec<glm::Vec3> = Vec::new();
 
 	    let mut spline_colors : Vec<glm::Vec4> = Vec::new();
 	    
-	    if self.spline_points.len() == 0 {
-		self.spline_points.push(self.control_points[0]);
-		spline_colors.push(self.point_colors[0]);
-	    }
-	    
-	    // Build from start_cp + dt, start_cp + 2 * dt ... start_cp + 1
-	    // NB: Assumes start_cp is multiple of 
-	    let start_cp = self.spline_points.len() / SPLINE_RESOLUTION;
+	    self.spline_points.push(self.control_points[0]);
+	    spline_colors.push(self.point_colors[0]);
 
-	    let num_cp = self.control_points.len() - SPLINE_DEGREE - start_cp - 1;
+	    // Build from bottom up
+	    let num_cp = self.control_points.len() - 1;
 	    let num_points = num_cp * SPLINE_RESOLUTION;
 
 	    for i in 0..num_points {
 		let mut pp = glm::vec3(0.0, 0.0, 0.0);
 		let mut cp = glm::vec4(0.0, 0.0, 0.0, 1.0);
-		let curr_point = start_cp + (i + 1) / SPLINE_RESOLUTION; 
+		let curr_point =  (i + 1) / SPLINE_RESOLUTION; 
 
 		let b_ind = (i + 1) % SPLINE_RESOLUTION;
 		
 		for j in 0..(SPLINE_DEGREE+1) {
-		    pp = pp + self.control_points[curr_point + j] *
+		    pp = pp + lookup_pad(&self.control_points, curr_point + j) *
 			SPLINE_COEFFICIENTS.coefficients[b_ind][j];
-		    cp = cp + self.point_colors[curr_point + j] *
+		    cp = cp + lookup_pad(&self.point_colors, curr_point + j) *
 			SPLINE_COEFFICIENTS.coefficients[b_ind][j];
 		}
 
@@ -195,10 +200,10 @@ impl SplineState {
 		spline_colors.push(cp);
 	    }
 
-	    for _i in 0..SPLINE_DEGREE {
+	    /* for _i in 0..SPLINE_DEGREE {
 		self.control_points.pop();
 		self.point_colors.pop();
-	    }
+	    } */
 	    
 	    unsafe {
 		gl::BindBuffer(gl::ARRAY_BUFFER, self.spline_lines_vbo);
@@ -271,16 +276,18 @@ pub fn draw_control_points(spline_state: &SplineState ) {
 
 pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut SplineState) {
     
-        if mouse_state.button1_pressed && mouse_state.in_window {
-	    let clone = mouse_state.pos.clone();
-	    let new_point = edit::normalize_point(clone);
-	    let new_point  = glm::vec3(new_point.x, new_point.y, 0.0);
-	    
-	    if spline_state.control_points.len() == 0 {
-		for _ in 0..(SPLINE_DEGREE+1) {
-		    spline_state.add_control_point(new_point);
-		}
-	    
+    if mouse_state.button1_pressed && mouse_state.in_window {
+	let clone = mouse_state.pos.clone();
+	let new_point = edit::normalize_point(clone);
+	let new_point  = glm::vec3(new_point.x, new_point.y, 0.0);
+	
+	if spline_state.control_points.len() == 0 {
+	    /* for _ in 0..(SPLINE_DEGREE+1) {
+		spline_state.add_control_point(new_point);
+	    }
+	     */
+
+	    spline_state.add_control_point(new_point);
 	} else if length(new_point - spline_state.control_points[spline_state.control_points.len() - 1] )
 	    >= LINE_LIMIT * 0.9 &&
 	    spline_state.control_points.len() < MAX_NUM_POINTS {
@@ -290,7 +297,7 @@ pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut
 		let v2 = vv / length(vv) * LINE_LIMIT;
 		let new_point = spline_state.control_points[spline_state.control_points.len() - 1] + v2;
 		
-	
+		
 		spline_state.add_control_point(new_point);
 	    }
 	

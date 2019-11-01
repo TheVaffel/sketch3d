@@ -17,6 +17,7 @@ use crate::splinedraw;
 use crate::cyllinder;
 use crate::utils;
 use crate::edit;
+use crate::laplacian;
 
 pub struct MouseState {
     pub pos: glm::Vec2,
@@ -69,7 +70,7 @@ fn handle_draw_operation(mut spline_state : splinedraw::SplineState,
 			 mouse_state : &MouseState,
 			 key_state : &KeyState) -> (ProgramState, splinedraw::SplineState) {
     if key_state.enter {
-	if spline_state.control_points.len() > 2 {
+	if spline_state.control_points.len() >= 2 {
 	    let cyllinder_object = cyllinder::create_cyllinder(0.1, 5, spline_state);
 	    
 	    cyllinders.push(cyllinder_object);
@@ -92,9 +93,11 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 				       in_window: true, };
     let mut key_state = KeyState { enter: false, };
 
-    let mut edit_state = edit::EditState { selected_indices : Vec::new(),
-					   ref_point : glm::vec2(0.0, 0.0),
-                                           state : edit::EditEnum::Selecting};
+    let mut edit_state =
+	edit::EditState { selected_indices : Vec::new(),
+			  ref_point : glm::vec2(0.0, 0.0),
+                          state : edit::EditEnum::Selecting,
+			  laplacian_system : laplacian::LaplacianEditingSystem::empty() };
 
     let mut spline_state = splinedraw::SplineState::new();
 

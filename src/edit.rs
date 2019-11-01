@@ -16,6 +16,7 @@ pub enum EditEnum {
 pub struct EditState {
     pub selected_indices: Vec<usize>,
     pub ref_point: glm::Vec2,
+    pub laplacian_system: laplacian::LaplacianEditingSystem,
     pub state : EditEnum,
 }
 
@@ -88,10 +89,12 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
                 edit_state.selected_indices.len() > 0 {
                     edit_state.state = EditEnum::Dragging;
 
-		    laplacian::setup_system(&cyllinder.spline.control_points);
+		    edit_state.laplacian_system = laplacian::setup_system(&cyllinder.spline.control_points);
                 }
         },
         EditEnum::Dragging => {
+
+	    cyllinder.spline.control_points = edit_state.laplacian_system.solve();
             if mouse_state.button1_pressed {
                 if !mouse_state.button1_was_pressed {
                     let selected_point_ind = select_point(mouse_state.pos,
@@ -131,9 +134,9 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
         }
     }
 
-    if key_state.enter {
+    // if key_state.enter {
         cyllinder.update_mesh();
-    }
+// }
 
     cyllinder.spline.update_gpu_state();
 }

@@ -7,9 +7,37 @@ use std::collections::BTreeMap;
 
 extern crate glm;
 
-struct LaplacianEditingSystem {
-    system_matrix: nsp::CsMatrix<f32, na::Dynamic, na::Dynamic>,
-    rhs:           nsp::CsMatrix<f32, na::Dynamic, na::U1>
+pub struct LaplacianEditingSystem {
+    pub system_matrix: nsp::CsMatrix::<f32, na::Dynamic, na::Dynamic>,
+    rhs:           na::MatrixMN::<f32, na::Dynamic, na::U1>
+}
+
+impl LaplacianEditingSystem {
+    pub fn solve(&self) -> Vec<glm::Vec3> {
+	let a = self.system_matrix.solve_lower_triangular(&self.rhs);
+	if a == None {
+	    println!("Could not solve system {:?} x = {:?}", self.system_matrix,
+		     self.rhs);
+	    std::process::exit(-1);
+	}
+	let a = a.unwrap();
+	let n = a.len() / 2;
+	let mut vec = Vec::new();
+	for i in 0..n {
+	    vec.push(glm::vec3(a[i], a[i + n], 0.0));
+	}
+
+	vec
+    }
+
+    pub fn empty() -> LaplacianEditingSystem {
+	unsafe {
+	    LaplacianEditingSystem {
+		system_matrix : nsp::CsMatrix::<f32, na::Dynamic, na::Dynamic>::new_uninitialized_generic(na::Dynamic::new(1), na::Dynamic::new(1), 0),
+		rhs:            na::MatrixMN::<f32, na::Dynamic, na::U1>::new_uninitialized(1)
+	    }
+	}
+    }
 }
 
 
@@ -38,7 +66,8 @@ fn insert_triplet(rows: &mut Vec<usize>,
     }
 }
 
-pub fn setup_system (points : &Vec<glm::Vec3>) {
+pub fn setup_system (points : &Vec<glm::Vec3>)
+		     -> LaplacianEditingSystem {
     let n = points.len();
     // Now, since we are only dealing with a single spline, we assume that every node
     // is only connected to its neighbors in the point list.
@@ -117,7 +146,7 @@ pub fn setup_system (points : &Vec<glm::Vec3>) {
 		       &mut index_map);
     }
 
-    let laplacian = nsp::CsMatrix::from_triplet(2 * n, 2 * n,
+    let laplacian = nsp::CsMatrix::from_triplet(2 * n + 4, 2 * n,
 						&rows, &cols, &vals);
 
     let delta_vector = na::Matrix::from(&laplacian * &point_vector);
@@ -125,9 +154,11 @@ pub fn setup_system (points : &Vec<glm::Vec3>) {
     println!("Delta vector: {:?}", delta_vector);
     
     // Redeclare these, to construct a new matrix
-    let mut rows : Vec<usize> = Vec::with_capacity(2 * n);
-    let mut cols : Vec<usize> = Vec::with_capacity(2 * n);
-    let mut vals : Vec<f32>   = Vec::with_capacity(2 * n);
+    rows.clear();
+    cols.clear();
+    vals.clear();
+    index_map.clear();
+    
 
     #[allow(non_snake_case)]
     for i in 0..n {
@@ -160,22 +191,75 @@ pub fn setup_system (points : &Vec<glm::Vec3>) {
 	let inn = tmp1.try_inverse();
 	if inn == None {
 	    println!("Matrix inversion failed");
-	    println!("{:?}", tmp1);
+	    println!("Its determinant: {}", tmp1.determinant());
+	    for i in 0..4 {
+		println!("{:?}", tmp1.row(i));
+	    }
+	    println!("Matrix: {:?}", tmp1);
 	    ::std::process::exit(-1);
 	}
 
 	let M = &inn.unwrap() * &C.transpose();
 
-	for neigh in neighbors {
-	    rows.push(i);
-	    cols.push(neigh)
+	for j in 0..neighbors.len() {
+	    let neigh = neighbors[j];
+	    
+	    insert_triplet(&mut rows, &mut cols, &mut vals,
+			   i, neigh,
+			   delta_vector[i] * M[(0, j)] - delta_vector[i + n] * M[(1, j)] + M[(2, j)],
+			   &mut index_map);
+	    insert_triplet(&mut rows, &mut cols, &mut vals,
+			   i, neigh + n,
+			   delta_vector[i] * M[(0, j + un)] - delta_vector[i + n] * M[(1, j + un)] + M[(2, j + un)],
+			   &mut index_map);
+
+	    insert_triplet(&mut rows, &mut cols, &mut vals,
+			   i + n, neigh,
+			   delta_vector[i + n] * M[(0, j)] + delta_vector[i] * M[(1, j)] + M[(3, j)],
+			   &mut index_map);
+	    insert_triplet(&mut rows, &mut cols, &mut vals,
+			   i + n, neigh + n,
+			   delta_vector[i + n] * M[(0, j + un)] + delta_vector[i] * M[(1, j + un)] + M[(3, j + un)],
+			   &mut index_map);
 	}
     }
 
-    let t_tilde = nsp::CsMatrix::from_triplet(2 * n, 2 * n,
-					      &rows, &cols, &vals);
-    //let system = nsp::CsMatrix::from_triplet(3 * n, 3 * n,
-    //					     rows, cols, vals);
+    let mut rhs_vector = na::Matrix::<f32, na::Dynamic, na::U1, _>::zeros(2 * n + 4);
 
-    ::std::process::exit(0);
+    // Fix the two endpoints
+
+    insert_triplet(&mut rows, &mut cols, &mut vals,
+		   2 * n + 0, 0, 1.0, &mut index_map);
+    insert_triplet(&mut rows, &mut cols, &mut vals,
+		   2 * n + 1, n - 1, 1.0, &mut index_map);
+    insert_triplet(&mut rows, &mut cols, &mut vals,
+		   2 * n + 2, n, 1.0, &mut index_map);
+    insert_triplet(&mut rows, &mut cols, &mut vals,
+		   2 * n + 3, 2 * n - 1, 1.0, &mut index_map);
+
+    rhs_vector[2 * n + 0] = points[0].x;
+    rhs_vector[2 * n + 1] = points[1].x;
+    rhs_vector[2 * n + 2] = points[0].y;
+    rhs_vector[2 * n + 3] = points[1].y;
+    
+    let t_tilde = nsp::CsMatrix::from_triplet(2 * n + 4, 2 * n,
+					      &rows, &cols, &vals);
+
+    println!("Ttilde = {:?}", t_tilde);
+    println!("Laplacian = {:?}", laplacian);
+    
+    
+    let system = &t_tilde + &(laplacian * (-1.0));
+
+    
+    // Now, we would like to compute a least square approximation of x in 
+    // system * x = rhs_vector
+    // Sadly, I don't think nalgebra has that feature, so we will just do it in the poor man's way
+
+    let ssh = system.transpose();
+    let system2 = &ssh * &system;
+    let rhs2 = &ssh * &nsp::CsMatrix::from(rhs_vector);
+
+    LaplacianEditingSystem { system_matrix: system2,
+			     rhs:    na::Matrix::from(rhs2) }
 }
