@@ -142,7 +142,6 @@ pub fn create_sphere_object(radius: f32,
     let invres = 1.0 / resolution as f32;
 
     let iresolution :u32 = resolution as u32;
-    println!("Resolutions: {} {}", iresolution, resolution);
 
     for i in 0..(resolution - 1) {
 	let phi = f32::consts::PI * (invres * (i + 1) as f32 - 1.0 / 2.0);
@@ -171,7 +170,6 @@ pub fn create_sphere_object(radius: f32,
     let mut indices : Vec<u32> =
 	vec![0; 6 * resolution * 2 * (resolution - 2) + 2 * 3 * 2 * resolution];
 
-    // println!("Index vector: {:?}", indices);
     
     for i in 0..(resolution - 2) {
 	let ii :u32 = i as u32;

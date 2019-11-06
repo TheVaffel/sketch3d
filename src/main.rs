@@ -67,21 +67,6 @@ fn init_glfw() -> GLFWState  {
 }
 
 fn main() {  
-
-    let vec = vec![glm::vec3(0.0, 0.0, 0.0),
-		   glm::vec3(2.0, 3.0, 0.0),
-		   // glm::vec3(4.0, 6.0, 0.0),
-    ];
-
-    let system = laplacian::setup_system(&vec);
-
-    let new_vec = system.solve();
-
-    println!("Vec = {:?}", vec);
-    println!("New vec = {:?}", new_vec);
-    println!("System = {:?}", na::Matrix::from(system.system_matrix));
-    
-    // std::process::exit(0);
     
     let glfw_state = init_glfw();
     

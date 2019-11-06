@@ -56,8 +56,6 @@ pub fn make_spline_coefficients() -> SplineCoefficients {
 	}
     }
 
-    println!("Coeffs = {:?}", coeffs.coefficients);
-    
     coeffs
 }
 
@@ -282,10 +280,6 @@ pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut
 	let new_point  = glm::vec3(new_point.x, new_point.y, 0.0);
 	
 	if spline_state.control_points.len() == 0 {
-	    /* for _ in 0..(SPLINE_DEGREE+1) {
-		spline_state.add_control_point(new_point);
-	    }
-	     */
 
 	    spline_state.add_control_point(new_point);
 	} else if length(new_point - spline_state.control_points[spline_state.control_points.len() - 1] )

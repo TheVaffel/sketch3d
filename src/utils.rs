@@ -1,6 +1,6 @@
 
 extern crate glm;
-
+extern crate nalgebra as na;
 
 pub fn ortho(left : f32, right : f32, bottom : f32, top : f32, back : f32, front : f32) -> glm::Mat4 {
     let dist_hor  = right - left;
@@ -14,3 +14,19 @@ pub fn ortho(left : f32, right : f32, bottom : f32, top : f32, back : f32, front
 	      // 0.0,            0.0,             0.0,             1.0)
 	      - (left + right) / dist_hor,          - (bottom + top) / dist_ver,        - (front + back) / dist_view,           1.0)
 }
+
+
+
+
+pub fn print_matrix<T: na::Dim,
+		    U: na::Dim,
+		    S: na::storage::Storage<f32, T, U>>
+    (mat : na::Matrix<f32, T, U, S>) {
+	for i in 0..mat.nrows() {
+	    for j in 0..mat.ncols() {
+		print!("{:?}\t", mat[(i,j)]);
+	    }
+	    print!("\n");
+	}
+	
+    }
