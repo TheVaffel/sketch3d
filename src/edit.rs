@@ -88,13 +88,10 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
                 mouse_state.button1_was_pressed &&
                 edit_state.selected_indices.len() > 0 {
                     edit_state.state = EditEnum::Dragging;
-
-		    edit_state.laplacian_system = laplacian::setup_system(&cyllinder.spline.control_points);
                 }
         },
         EditEnum::Dragging => {
 
-	    cyllinder.spline.control_points = edit_state.laplacian_system.solve();
             if mouse_state.button1_pressed {
                 if !mouse_state.button1_was_pressed {
                     let selected_point_ind = select_point(mouse_state.pos,
@@ -119,6 +116,26 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
 	                edit_state.selected_indices.clear();
                     } else {
                         edit_state.ref_point = normalize_point(mouse_state.pos);
+
+			
+
+			let mut fixed_vec : Vec<usize> = Vec::new();
+			
+			let mut arr : Vec<i32> = (0..cyllinder.spline.control_points.len() as i32).collect();
+			for i in &edit_state.selected_indices {
+			    arr[*i] = -1;
+			}
+			for i in arr {
+			    if i != -1 {
+				fixed_vec.push(i as usize);
+			    }
+			}
+
+			// Fix the position of the currently moving node
+			fixed_vec.push(selected_point_ind as usize);
+			
+			edit_state.laplacian_system = laplacian::setup_system(&cyllinder.spline.control_points,
+									      fixed_vec);
                     }
                 } else {
                     let new_mpoint = normalize_point(mouse_state.pos);
@@ -128,6 +145,9 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
 		            cyllinder.spline.control_points[*i] + glm::vec3(diff.x, -diff.y, 0.0);
 	            }
 	            edit_state.ref_point = new_mpoint;
+
+		    
+		    edit_state.laplacian_system.solve(&mut cyllinder.spline.control_points);
                 }
                 
             }
