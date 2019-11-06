@@ -3,6 +3,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{babel}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{fancyhdr}
 \fancyhf{}
@@ -31,6 +32,147 @@ Procedural generation is a powerful tool for artists to create a large amount of
 
 In this paper, I will discuss an application that makes use of tools for artists that go beyond just creating geometry, by extending it to more high-level connections in-between primitives of the geometry, that can generalize well over parameter changes.
 
+\section{Editor Algorithms}
+
+\subsection{The Mathematics of the Laplacian Curve Editing}
+
+The following describes how we compute a new spline curve after one of the points has moved. This method is based on, similarily to Gingold et al. INSERT CITATION, the one used in \textit{Laplacian Surface Editing} by Sorkine et al. INSERT CITATION HERE. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice.
+
+Let the $V$ denote the initial positions of the control points before movement, consisting of the individual nodes positions $\mathbf{v}_i \in V$. Next, let $U \subset \mathbb{Z}$ be a set of indices refering to points we want to keep fixed, and let $\mathbf{u}_i$ be the fixed positions of $\mathbf{v}_i \in V$ for each $ i \in U$. Given the fixed positions $\mathbf{u}_i$ and the initial positions $V$, we want to compute the new positions $V'$, consisting of the individual positions $\mathbf{v}'_i \in V'$, that preserve the local structure of the curve, while also resembling the new fixed positions.
+
+In practice, $V$ will be a column vector of length $2n$, $n$ being the number of points. The $n$ first elements will be the $x$-coordinates of the points $\mathbf{v}_{i_x}$, $i \in [1..n]$, and the final $n$ elements will be the $y$-coordinates. $V'$ will have a similar structure.
+
+The basic procedure for editing the curve will consist of the user choosing a set of points (the region of interest, RoI), that can be manipulated, and then dragging one of these (the ``handle'') to a new position. In this case, the set of indices for fixed points $U$ will contain the index of all points not in the RoI, in addition to the point dragged by the user. As a result, the algorithm will compute a new curve by mostly moving the points in the RoI to be consistent with the points outside the RoI and the new position of the handle.
+
+Let $\mathcal{\mathbf{v_i}}$ denote the Laplacian of vector $\mathbf{v_i}$. If we let $\mathcal{N}_i$ denote the set of neighbors to vertex $i$, whichin case of a curve  will be $i+1$ and $i - 1$, provided they exist. The Laplacian of a vertex can now be written as $\mathcal{L}(\mathbf{v_i}) = \mathbf{v_i} - \sum_{j \in \mathcal{N}_i}\mathbf{v_j} / |\mathcal{N}_i|$. We see that this transform is linear in the positions of the curve, so that we can let $L$ be the \textit{Laplacian matrix} such that $L\cdot V$ produces the vector $\Delta$ containing the Laplacian coordinates of the vertices. Denote the Laplacian transformation of $\mathbf{v}_i$ as $\mathbf{\delta}_i$.
+
+We will formulate the problem as a sparse linear system, which may subsequently be solved with an off-the-shelf solver. Consider the following energy function:
+
+\[
+E_0(V') = \sum_{i = 1}^n || \mathbf{\delta}_i - \mathcal{L}(\mathbf{v'}_i) ||^2 + \sum_{i \in U} || \mathbf{v}_i - \mathbf{v'}_i||^2
+\]
+
+When minimizing this function, the first term will ensure that the laplacian of the new and old points stay mostly the same, and the second term will ensure that our fixed points stay close to their original positions.
+
+One aspect that this formulation does not account for, is that movement of a point will disallow rotation and scaling of the Laplacian coordinates, although in general, we want to allow for those transformations to occur. 
+
+Thus, we formulate a new energy function that can account for transformations:
+
+\begin{equation}
+  E(V') = \sum_{i = 1}^n || T_i(V') \mathbf{\delta}_i - \mathbf{\delta'}_i||^2 + \sum_{i \in U} || \mathbf{v}_i - \mathbf{v'}_i||^2.
+  \label{eq1}
+\end{equation}
+
+We want to choose a transformation that minimizes the first term, in other words minimizes
+
+\[
+G_i(T_i) = || T_i\mathbf{v}_i - \mathbf{v'}_i ||^2 + \sum_{j \in \mathcal{N}_i}||T_i \mathbf{v}_j - \mathbf{v'}_j||^2
+\]
+
+We will discuss how to optimize for $V'$ and $T_i$ simultaneously, but first, we must note that if we leave $T_i$ unconstrained, the minimizer of $G_i$ will be a membrane solution, a solution where all vertices between two fixed vertices will form a straight line, which will defeat our purpose of creating a new ``naturally'' curved spline.
+
+The solution to this, as proposed by Sorkine et al., is to only allow for isotropic scaling and small rotations. They argue that anisotropic scaling may flatten a point in its normal direction, diminishing its Laplacian coordinate. Specifically, the transformation will take the following form (in two dimensions):
+
+\[
+T_i = \left[
+  \begin{matrix}
+    s_i & -h_i \\
+    h_i & s_i
+  \end{matrix}
+  \right]
+\]
+
+As we see, only small rotations (with $h_i = \sin \theta$, $\theta$ being the angle of rotation) will be describable with reasonable accuracy by this matrix, although Sorkine et al. propose ways of working around this restriction.
+
+An important question remains - how can we formulate an optimization problem where both $V'$ and the $T_i$'s are unknown? The solution provided by Sorkine et al. is to formulate $T_i$ as a linear function of $V'$, and encorporate the coefficients of that linear function into the original linear system. Practically, this is done in the following way:
+
+First, we formulate an optimization problem to find the coefficients $[s_i, h_i]^T$ from $G_i$. We see that if we let
+
+\[
+A_i = \begin{bmatrix}
+  v_{k_x} & -v_{k_y} \\
+  \vdots &  \vdots \\
+  v_{k_y} &  v_{k_x} \\
+  \vdots &  \vdots
+\end{bmatrix}
+\text{ for } k \in \{i\} + \mathcal{N}_i
+\],
+
+the energy function $G_i$ can simply be written as
+
+\[
+||A_i[s_i, h_i]^T - \mathbf{b}_i||^2
+\]
+
+where $\mathbf{b}_i$ is defined by
+
+\[
+\mathbf{b}_i = \begin{bmatrix}
+  v'_{k_x} \\
+  \vdots \\
+  v'_{k_y} \\
+  \vdots
+\end{bmatrix}
+\text{ for } k \in \{i\} + \mathcal{N}_i
+\],
+
+This is a least-squares problem with the closed-form solution
+
+\[
+\begin{bmatrix}
+  s_i \\
+  h_i \\
+\end{bmatrix}
+= (A_i^TA_i)^{-1}A_i^T\mathbf{b}_i
+\].
+
+We thus see that the coefficients of $T_i$ are linear in $V'$. Let $M_i = (A_i^TA_i)^{-1}A_i^T\mathbf{b}_i$. We now turn our attention back to the energy function $E(V')$. We will minimize it by formulating it as quadratic optimization problem $||BV' - \mathbf{c}||^2$, where $B$ has dimensions $(2n + 2|U|) \times 2n$ and $\mathbf{c}$ has dimensions $(2n + 2|U|) \times 1$.
+
+We first discuss the structure of $\mathbf{c}$. The first $2n$ elements will all be zero, as we simply wish to minimize the dot products of $V'$ with the first $2n$ rows of $B$, which we will discuss in a bit. The final $2|U|$ rows of $\mathbf{c}$ contain first the $x$-coordinates of all the fixed points, and then the $y$-coordinates, or algebraically:
+
+\[
+\mathbf{c} = 
+\begin{bmatrix}
+  0 \\
+  \vdots \\
+  0 \\
+  v_{u_x} \\
+  \vdots \\
+  v_{u_y} \\
+  \vdots
+\end{bmatrix}
+\text{ for } u \in U
+\]
+
+Next, we define the rows of $B$. The $2n$ first rows will describe the terms $T_i(V')\mathbf{\delta}_i - \mathbf{\delta'}_i$ of equation \ref{eq1}, separated into $x$- and $y$-components as usual. The $x$-part of the term translates into $s_i\mathbf{\delta}_{i_x} + h_i\mathbf{\delta}_{i_y} - \mathbf{\delta'}_{i_x}$. But, as we have seen, $s_i$ and $h_i$ can be written as linear functions of $V'$ using the aforementioned matrix $M_i$. Let $M'_{i_1}$ be a row vector of $2n$ elements containing the components of row 1 of $M_i$, such that each component has the same position in $M'_{i_1}$ as the corresponding component in $\mathbf{b}_i$ has in $V'$. In other words, so that $M'_{i_1}V' = s_i$. Similarily, let $M'_{i_2}$ be the vector so that $M'_{i_2}V' = h_i$.
+
+Having these definitions handy, we now see that $s_i\mathbf{\delta}_{i_x} + h_i\mathbf{\delta}_{i_y} - \mathbf{\delta'}_{i_x} = (\mathbf{\delta}_{i_x}M'_{i_1} + \mathbf{\delta}_{i_y}M'_{i_2} - L_i)V'$, where $L_i$ is the $i$'th row of the Laplacian, so that the left-hand factor of the last expression will be the $i$'th row of $B$ for $i \leq n$. For $i > n$, we have a corresponding expression, but for the $y$-component of the term $T_i(V') \mathbf{\delta}_i - \mathbf{\delta'}_i$.
+
+The final $2|U|$ rows of $B$ will have a single 1 each, on the position corresponding to component of $\mathbf{v'}_u$ for $u \in U$ in the same row of $\mathbf{c}$. In notation, row $i$ of $B$ will look like this:
+
+\[
+B_i = \left\{\begin{array}{lr}
+\mathbf{\delta}_{i_x}M'_{i_1} - \mathbf{\delta}_{i_y}M'_{i_2} - L_i & \text{for } i \leq n \\
+\mathbf{\delta}_{{(i-n)}_x}M'_{{(i-n)}_2} + \mathbf{\delta}_{{(i-n)}_y}M'_{{(i-n)}_1} - L_{i-n} & \text{for } n < i \leq 2n \\
+\mathbf{e}^T_{u_{(i - 2n)}} & \text{for } 2n < i \leq 2n + |U| \\
+\mathbf{e}^T_{n + u_{(i - 2n - |U|)}} & \text{for } 2n + |U| < i \leq 2n + 2|U|
+\end{array}\right\}
+\]
+
+where $\mathbf{e_i}$ is the column vector with zeros everywhere except on position $i$, and $u_i$ is the $i$'th integer in $U$, in the same order as in the definition of $\mathbf{c}$.
+
+Finally, we but the pieces together and conclude that the minimization objective
+
+\[
+||BV'- \mathbf{c}||^2
+\]
+
+is a sparse system with unknown vector $V'$. The system is overdetermined, so we find the least squares solution by solving the sparse linear system
+
+\[
+B^TBV' = B^T\mathbf{c}
+\],
+so that, in the end, we find the new curve vertices $V'$.
 
 \section{Related Work}
 
