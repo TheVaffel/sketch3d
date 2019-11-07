@@ -58,12 +58,12 @@ pub fn select_point(mouse_pos : glm::Vec2, points : &Vec<glm::Vec3>,
 
 
 pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
-			 proj : &glm::Mat4, mouse_state : &program::MouseState,
-			 key_state : &program::KeyState, edit_state : &mut EditState) {
+			     proj : &glm::Mat4, input_state: &program::InputState,
+			     edit_state : &mut EditState) {
     match edit_state.state {
         EditEnum::Selecting => {
-            if mouse_state.button1_pressed {
-                let selected_point_ind = select_point(mouse_state.pos,
+            if input_state.mouse_state.button1_pressed {
+                let selected_point_ind = select_point(input_state.mouse_state.pos,
 					              &cyllinder.spline.control_points,
 					              proj, SELECTION_SENSITIVITY);
                 
@@ -84,17 +84,17 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
                 }
             }
             
-            if !mouse_state.button1_pressed &&
-                mouse_state.button1_was_pressed &&
+            if !input_state.mouse_state.button1_pressed &&
+                input_state.mouse_state.button1_was_pressed &&
                 edit_state.selected_indices.len() > 0 {
                     edit_state.state = EditEnum::Dragging;
                 }
         },
         EditEnum::Dragging => {
 
-            if mouse_state.button1_pressed {
-                if !mouse_state.button1_was_pressed {
-                    let selected_point_ind = select_point(mouse_state.pos,
+            if input_state.mouse_state.button1_pressed {
+                if !input_state.mouse_state.button1_was_pressed {
+                    let selected_point_ind = select_point(input_state.mouse_state.pos,
 					                  &cyllinder.spline.control_points,
 					                  proj, SELECTION_SENSITIVITY);
 
@@ -115,7 +115,7 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
 	                }
 	                edit_state.selected_indices.clear();
                     } else {
-                        edit_state.ref_point = normalize_point(mouse_state.pos);
+                        edit_state.ref_point = normalize_point(input_state.mouse_state.pos);
 
 			
 
@@ -138,13 +138,11 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
 									      fixed_vec);
                     }
                 } else {
-                    let new_mpoint = normalize_point(mouse_state.pos);
-	            let diff = new_mpoint - edit_state.ref_point;
+                    let new_mpoint = normalize_point(input_state.mouse_state.pos);
 	            for i in &edit_state.selected_indices {
 		        cyllinder.spline.control_points[*i] =
-		            cyllinder.spline.control_points[*i] + glm::vec3(diff.x, -diff.y, 0.0);
+			    glm::vec3(new_mpoint.x, -new_mpoint.y, 0.0);
 	            }
-	            edit_state.ref_point = new_mpoint;
 
 		    
 		    edit_state.laplacian_system.solve(&mut cyllinder.spline.control_points);
@@ -154,9 +152,7 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
         }
     }
 
-    // if key_state.enter {
-        cyllinder.update_mesh();
-// }
+    cyllinder.update_mesh();
 
     cyllinder.spline.update_gpu_state();
 }

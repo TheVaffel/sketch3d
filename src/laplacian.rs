@@ -1,3 +1,4 @@
+
 extern crate nalgebra;
 
 use nalgebra as na;
@@ -8,10 +9,7 @@ use std::collections::BTreeMap;
 extern crate glm;
 extern crate generic_array;
 
-use crate::utils; 
-
 pub struct LaplacianEditingSystem {
-    // pub system_matrix: nsp::CsMatrix::<f32, na::Dynamic, na::Dynamic>,
     pub original_matrix_trans: nsp::CsMatrix<f32, na::Dynamic>,
     pub system_composition: nsp::CsCholesky<f32, na::Dynamic>,
     rhs:           na::MatrixMN::<f32, na::Dynamic, na::U1>,

@@ -17,7 +17,7 @@ pub fn ortho(left : f32, right : f32, bottom : f32, top : f32, back : f32, front
 
 
 
-
+#[allow(dead_code)]
 pub fn print_matrix<T: na::Dim,
 		    U: na::Dim,
 		    S: na::storage::Storage<f32, T, U>>

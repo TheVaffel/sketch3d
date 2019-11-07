@@ -1,4 +1,3 @@
-extern crate glfw;
 extern crate glm;
 extern crate gl;
 

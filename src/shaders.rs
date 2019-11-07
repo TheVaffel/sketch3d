@@ -1,12 +1,9 @@
 
 // This file is largely following the tutorial at http://nercury.github.io/rust/opengl/tutorial/2018/02/10/opengl-in-rust-from-scratch-03-compiling-shaders.html
 
-
 extern crate gl;
-extern crate glfw;
 
 use std::ffi::{CString, CStr};
-
 
 struct Shader {
     id: gl::types::GLuint,

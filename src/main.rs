@@ -1,11 +1,13 @@
 #[macro_use]
 extern crate lazy_static;
 
-extern crate glfw;
+// extern crate glfw;
 extern crate gl;
 extern crate nalgebra as na;
+extern crate imgui_glfw_rs;
 
-use glfw::{Context};
+use imgui_glfw_rs::imgui::Context as ImContext;
+use imgui_glfw_rs::glfw::{self,Context};
 
 mod program;
 mod settings;
@@ -17,6 +19,7 @@ mod cyllinder;
 mod edit;
 mod utils;
 mod laplacian;
+mod gui;
 
 pub struct Object {
     vao: gl::types::GLuint, 
@@ -32,8 +35,10 @@ pub struct ModelerState {
 
 pub struct GLFWState {
     glfw:   glfw::Glfw,
-    window: glfw::Window,
+    window: imgui_glfw_rs::glfw::Window,
     events: std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
+    imgui_context: imgui_glfw_rs::imgui::Context,
+    imgui_glfw_context: imgui_glfw_rs::ImguiGLFW,
 }
 
 fn init_glfw() -> GLFWState  {
@@ -62,12 +67,15 @@ fn init_glfw() -> GLFWState  {
     window.set_mouse_button_polling(true);
     window.set_cursor_enter_polling(true);
 
+    let mut imgui_context = ImContext::create();
+    let imgui_glfw_context = imgui_glfw_rs::ImguiGLFW::new(&mut imgui_context, &mut window);
+
     
-    GLFWState{window, events, glfw}
+    GLFWState{ window, events, glfw, imgui_context, imgui_glfw_context }
 }
 
 fn main() {  
-    
+
     let glfw_state = init_glfw();
     
     let models = program::setup_objects();
