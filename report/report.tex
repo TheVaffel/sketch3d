@@ -174,6 +174,12 @@ B^TBV' = B^T\mathbf{c}
 \],
 so that, in the end, we find the new curve vertices $V'$.
 
+\subsection*{Modifications}
+
+Although the Laplacian Curve Editing approach provides a satisfying approach to edit a curve, the fixed points were found to move an unacceptable amount due to having a least-squares constraint and not being completely fixed. We probably encounter this problem because, unlike Sorkine et al., we have a limited number of vertices in the spline (usually less than 100), which make them more apt to move larger distances than if we had, say, tens of thousands of vertices, like in the meshes used by Sorkine et al.
+
+This is fixed with a larger weight on the fixed-point terms of the optimization objective, practically conducted by multiplying both the non-zero elements of the $2|U|$ bottom rows of $B$ and the last $2|U|$ elements of $c$ by the same constant factor.
+
 \section{Related Work}
 
 The power of procedural generation has been proven in the creation of plants (SOME CITATION), buildings (SOME OTHER CITATION) and even whole cities (THAT PARISH PAPER, YOU KNOW). There are various ways of seeding procedural generation, shape grammars being among the most popular ones.
