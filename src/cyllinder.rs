@@ -130,9 +130,10 @@ pub fn get_cyllinder_values(radius : f32,
                             circ_resolution: usize,
                             spline_state : &splinedraw::SplineState)
                             -> (Vec<f32>, Vec<u32>) {
+    
     let len_resolution = spline_state.spline_points.len() - 1;
     let icirc_resolution = circ_resolution as u32;
-    
+
     // The hemisphere at each end: 2 * resolution panes around its circumference,
     // resolution - 1 of those in height, and then 2 * resolution triangles to close it on top.
     let num_end_triangles =
@@ -161,13 +162,14 @@ pub fn get_cyllinder_values(radius : f32,
 	}
     }
 
+    // Create hemispheres
     for k in 0..2 {
 	
 	let ind_base = 3 * num_base_triangles + k * 3 * num_end_triangles;
 	let vert_base = (2 * circ_resolution * (len_resolution + 1) + k * (2 * circ_resolution * (circ_resolution - 1) + 1)) as u32;
 	let dir = (if k == 0 {-1} else {1}) as i32;
 	let start_j = (if k == 0 {circ_resolution * 2} else {0}) as i32;
-			 
+	
 	for i in 0..(circ_resolution - 1) {
 	    let ii = i as u32;
 	    for j in 0..(circ_resolution * 2) {
@@ -186,19 +188,18 @@ pub fn get_cyllinder_values(radius : f32,
 		indices[ind_base + 6 * (i * 2 * circ_resolution + j) + 5] =
 		    vert_base + ii * 2 * icirc_resolution + (start_j + dir * (ij + 1)) as u32 % (2 * icirc_resolution) - 2 * icirc_resolution;
 	    }
-	} 
+	}
 
 	// Redo bottom of hemisphere - should reuse old vertices
 	let prev_base = (if k == 0 {0} else {circ_resolution * 2 * len_resolution}) as u32;
-	let start_vert = (if k == 0 {circ_resolution * 2} else {0}) as i32;
 	for i in 0..(circ_resolution * 2) {
 	    let ii = i as i32;
-	    indices[ind_base + 6 * i + 0] = prev_base + (start_vert + dir * ii      ) as u32 % (icirc_resolution * 2);
+	    indices[ind_base + 6 * i + 0] = prev_base + (start_j + dir * ii      ) as u32 % (icirc_resolution * 2);
 
-	    indices[ind_base + 6 * i + 3] = prev_base + (start_vert + dir * ii      ) as u32 % (icirc_resolution * 2);
+	    indices[ind_base + 6 * i + 3] = prev_base + (start_j + dir * ii      ) as u32 % (icirc_resolution * 2);
 
-	    indices[ind_base + 6 * i + 5] = prev_base + (start_vert + dir * (ii + 1)) as u32 % (icirc_resolution * 2);
-	} 
+	    indices[ind_base + 6 * i + 5] = prev_base + (start_j + dir * (ii + 1)) as u32 % (icirc_resolution * 2);
+	}
 
 
 	// Top of hemisphere
@@ -241,8 +242,8 @@ pub fn get_cyllinder_values(radius : f32,
 	    let ij = j as u32;
 	    let theta = ij as f32 * f32::consts::PI * 2.0 / (circ_resolution * 2) as f32;
 	    
-	    let vertex = glm::vec3(spline_state.spline_points[ai + 1].x,
-				   spline_state.spline_points[ai + 1].y,
+	    let vertex = glm::vec3(spline_state.spline_points[i].x,
+				   spline_state.spline_points[i].y,
 				   0.0) * base_length +
 		y_dir * theta.sin() * radius +
 		x_dir * theta.cos() * radius;
@@ -252,6 +253,7 @@ pub fn get_cyllinder_values(radius : f32,
 	    vertices[3 * (i * circ_resolution * 2 + j) + 2] = vertex.z;
 	}
     }
+
 
     // Create hemispheres
     for k in 0..2 {
