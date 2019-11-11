@@ -9,6 +9,8 @@ use std::collections::BTreeMap;
 extern crate glm;
 extern crate generic_array;
 
+static FIXED_POINT_FACTOR: f32 = 10.0;
+
 pub struct LaplacianEditingSystem {
     pub original_matrix_trans: nsp::CsMatrix<f32, na::Dynamic>,
     pub system_composition: nsp::CsCholesky<f32, na::Dynamic>,
@@ -24,8 +26,8 @@ impl LaplacianEditingSystem {
 
 	let n = l.ncols() / 2;
 	for i in 0..self.fixed.len() {
-	    self.rhs[2 * n + i] = new_positions[self.fixed[i]].x;
-	    self.rhs[2 * n + self.fixed.len() + i] = new_positions[self.fixed[i]].y;
+	    self.rhs[2 * n + i] = FIXED_POINT_FACTOR * new_positions[self.fixed[i]].x;
+	    self.rhs[2 * n + self.fixed.len() + i] = FIXED_POINT_FACTOR * new_positions[self.fixed[i]].y;
 	}
 	
 	let rhs = na::Matrix::from(&self.original_matrix_trans * &na::CsMatrix::from(self.rhs.clone()));
@@ -223,20 +225,20 @@ pub fn setup_system (points : &Vec<glm::Vec3>,
 	    insert_triplet(&mut rows, &mut cols, &mut vals,
 			   i + n, neigh + n,
 			   delta_vector[i + n] * M[(0, j + un)] + delta_vector[i] * M[(1, j + un)], 
-	    &mut index_map); 
+			   &mut index_map); 
 	}
     }
 
-    let mut rhs_vector = na::Matrix::<f32, na::Dynamic, na::U1, _>::zeros(2 * n + 2 * fixed.len());
+    let rhs_vector = na::Matrix::<f32, na::Dynamic, na::U1, _>::zeros(2 * n + 2 * fixed.len());
 
+    // We multiply the fixed points and their weights by a factor, so that they
+    // will prefer standing still even more
     for i in 0..fixed.len() {
-	rhs_vector[2 * n + i] = points[fixed[i]].x;
-	rhs_vector[2 * n + fixed.len() + i] = points[fixed[i]].y;
 
 	insert_triplet(&mut rows, &mut cols, &mut vals,
-		       2 * n + i, fixed[i], 1.0, &mut index_map);
+		       2 * n + i, fixed[i], FIXED_POINT_FACTOR * 1.0, &mut index_map);
 	insert_triplet(&mut rows, &mut cols, &mut vals,
-		       2 * n + fixed.len() + i, n + fixed[i], 1.0,
+		       2 * n + fixed.len() + i, n + fixed[i], FIXED_POINT_FACTOR * 1.0,
 		       &mut index_map);
     }
     
