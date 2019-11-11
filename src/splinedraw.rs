@@ -6,7 +6,7 @@ use crate::edit;
 
 use glm::builtin::*;
 
-static LINE_LIMIT: f32 = 1.0 / 20.0; // 5% of window width
+pub static LINE_LIMIT: f32 = 1.0 / 20.0; // 5% of window width
 static MAX_NUM_POINTS: usize = 400;
 
 static SPLINE_RESOLUTION: usize = 5; // Points per control point

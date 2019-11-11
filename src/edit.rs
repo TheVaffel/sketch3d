@@ -5,6 +5,8 @@ use crate::settings;
 use crate::program;
 use crate::cyllinder;
 use crate::laplacian;
+use crate::gui;
+use crate::splinedraw;
 
 static SELECTION_SENSITIVITY : f32 = 0.03;
 
@@ -18,6 +20,39 @@ pub struct EditState {
     pub ref_point: glm::Vec2,
     pub laplacian_system: laplacian::LaplacianEditingSystem,
     pub state : EditEnum,
+    pub cyllinder: Option<cyllinder::GeneralizedCyllinder>,
+}
+
+impl EditState {
+    pub fn new() -> EditState {
+	EditState { selected_indices : Vec::new(),
+		    ref_point : glm::vec2(0.0, 0.0),
+                    state : EditEnum::Selecting,
+		    laplacian_system : laplacian::LaplacianEditingSystem::empty(),
+		    cyllinder : None }
+    }
+
+    pub fn has_cyllinder(&self) -> bool {
+	match self.cyllinder {
+	    None => false,
+	    Some(_) => true
+	}
+    }
+
+    pub fn add_selected_point(&mut self, ind: usize) {
+	self.cyllinder.as_mut().unwrap().
+	    spline.point_colors[ind] = glm::vec4(1.0, 0.0, 0.0, 1.0);
+        self.selected_indices.push(ind);
+    }
+
+    pub fn clear_selected(&mut self) {
+	let cyllinder = self.cyllinder.as_mut().unwrap();
+	for i in &self.selected_indices {
+	    cyllinder.spline.point_colors[*i] = glm::vec4(0.0, 0.0, 0.0, 1.0);
+	}
+	self.selected_indices.clear();
+	
+    }
 }
 
 pub fn normalize_point(p : glm::Vec2) -> glm::Vec2 {
@@ -56,10 +91,21 @@ pub fn select_point(mouse_pos : glm::Vec2, points : &Vec<glm::Vec3>,
 }
 
 
+pub fn handle_gui_update(mut glfw_state: &mut crate::GLFWState,
+			 mut gui_state: &mut gui::GUIState,
+			 edit_state: &mut EditState) {
+    let old_gui_state = gui_state.clone();
+    gui::run_gui(&mut glfw_state, &mut gui_state);
 
-pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
-			     proj : &glm::Mat4, input_state: &program::InputState,
-			     edit_state : &mut EditState) {
+    if edit_state.has_cyllinder() && gui_state.using_peeling != old_gui_state.using_peeling {
+	edit_state.clear_selected();
+    }
+}
+
+
+pub fn handle_edit_no_peeling(proj : &glm::Mat4, input_state: &program::InputState,
+			      edit_state : &mut EditState) {
+    let cyllinder = edit_state.cyllinder.as_mut().unwrap();
     match edit_state.state {
         EditEnum::Selecting => {
             if input_state.mouse_state.button1_pressed {
@@ -79,8 +125,7 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
 
                 
                 if !already_chosen && selected_point_ind >= 0 {
-                    cyllinder.spline.point_colors[selected_point_ind as usize] = glm::vec4(1.0, 0.0, 0.0, 1.0);
-                    edit_state.selected_indices.push(selected_point_ind as usize);
+		    edit_state.add_selected_point(selected_point_ind as usize);
                 }
             }
             
@@ -109,11 +154,8 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
                     }
                     
                     if selected_point_ind < 0 || !already_chosen {
+			edit_state.clear_selected();
                         edit_state.state = EditEnum::Selecting;
-                        for i in &edit_state.selected_indices {
-		            cyllinder.spline.point_colors[*i] = glm::vec4(0.0, 0.0, 0.0, 1.0);
-	                }
-	                edit_state.selected_indices.clear();
                     } else {
                         edit_state.ref_point = normalize_point(input_state.mouse_state.pos);
 
@@ -151,8 +193,74 @@ pub fn handle_edit_operation(cyllinder : &mut cyllinder::GeneralizedCyllinder,
             }
         }
     }
+}
 
-    cyllinder.update_mesh();
+pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputState,
+				edit_state : &mut EditState) {
+    let cyllinder = &mut edit_state.cyllinder.as_mut().unwrap();
+    match edit_state.state {
+	EditEnum::Selecting => {
+	    if input_state.mouse_state.button1_pressed {
+		
+                let selected_point_ind = select_point(input_state.mouse_state.pos,
+					              &cyllinder.spline.control_points,
+					              proj, SELECTION_SENSITIVITY);
+		if selected_point_ind > 0 {
+		    edit_state.ref_point = normalize_point(input_state.mouse_state.pos);
 
-    cyllinder.spline.update_gpu_state();
+		    edit_state.add_selected_point(selected_point_ind as usize);
+		    edit_state.state = EditEnum::Dragging;
+		}
+	    }
+	},
+	EditEnum::Dragging => {
+	    if !input_state.mouse_state.button1_pressed {
+		edit_state.state = EditEnum::Selecting;
+		edit_state.clear_selected();
+	    } else {
+		let new_point = normalize_point(input_state.mouse_state.pos);
+
+		let selected_point_ind = select_point(input_state.mouse_state.pos,
+					              &cyllinder.spline.control_points,
+					              proj, SELECTION_SENSITIVITY);
+
+		let area_of_effect = (glm::length(new_point - edit_state.ref_point) / splinedraw::LINE_LIMIT) as i32;
+
+		let mut fixed_points : Vec<usize> = Vec::new();
+
+		let len = cyllinder.spline.control_points.len();
+		cyllinder.spline.control_points[selected_point_ind as usize] =
+		    glm::vec3(new_point.x, -new_point.y, 0.0);
+		edit_state.clear_selected();
+		for i in 0..len {
+		    if (i as i32 - selected_point_ind).abs() > area_of_effect {
+			fixed_points.push(selected_point_ind as usize);
+		    } else {
+			edit_state.add_selected_point(i as usize);
+		    }
+		}
+
+		fixed_points.push(selected_point_ind as usize);
+
+	    }
+	}
+    }
+}
+
+pub fn handle_edit_operation(proj : &glm::Mat4, input_state: &program::InputState,
+			     mut edit_state : &mut EditState) {
+
+    if input_state.gui_state.using_peeling {
+	handle_edit_with_peeling(&proj, &input_state,
+				 &mut edit_state);
+    } else {
+	handle_edit_no_peeling(&proj, &input_state,
+			       &mut edit_state);
+    }
+
+    
+    edit_state.cyllinder.as_mut().unwrap().update_mesh();
+
+    edit_state.cyllinder.as_mut().unwrap().spline.update_gpu_state();
+
 }
