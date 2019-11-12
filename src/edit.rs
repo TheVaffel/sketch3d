@@ -205,9 +205,13 @@ pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputS
                 let selected_point_ind = select_point(input_state.mouse_state.pos,
 					              &cyllinder.spline.control_points,
 					              proj, SELECTION_SENSITIVITY);
-		if selected_point_ind > 0 {
+		if selected_point_ind >= 0 {
+		    
+		    edit_state.laplacian_system = laplacian::setup_original_points(&cyllinder.spline.control_points);
+			
 		    edit_state.ref_point = normalize_point(input_state.mouse_state.pos);
 
+		    // Convention: First selected index is always the dragged index
 		    edit_state.add_selected_point(selected_point_ind as usize);
 		    edit_state.state = EditEnum::Dragging;
 		}
@@ -220,28 +224,38 @@ pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputS
 	    } else {
 		let new_point = normalize_point(input_state.mouse_state.pos);
 
-		let selected_point_ind = select_point(input_state.mouse_state.pos,
-					              &cyllinder.spline.control_points,
-					              proj, SELECTION_SENSITIVITY);
-
 		let area_of_effect = (glm::length(new_point - edit_state.ref_point) / splinedraw::LINE_LIMIT) as i32;
 
 		let mut fixed_points : Vec<usize> = Vec::new();
 
 		let len = cyllinder.spline.control_points.len();
-		cyllinder.spline.control_points[selected_point_ind as usize] =
+		
+		let s1 = edit_state.selected_indices[0];
+		
+		cyllinder.spline.control_points[s1 as usize] =
 		    glm::vec3(new_point.x, -new_point.y, 0.0);
+
 		edit_state.clear_selected();
+		
+		// Preserve dragged point as first in selected-point-list
+		edit_state.add_selected_point(s1);
+		
 		for i in 0..len {
-		    if (i as i32 - selected_point_ind).abs() > area_of_effect {
-			fixed_points.push(selected_point_ind as usize);
-		    } else {
+		    if (i as i32 - s1 as i32).abs() > area_of_effect {
+			fixed_points.push(i as usize);
+		    } else if i != s1 {
 			edit_state.add_selected_point(i as usize);
 		    }
 		}
 
-		fixed_points.push(selected_point_ind as usize);
+		fixed_points.push(s1 as usize);
 
+		// Must redeclare to release mutable borrow for above section
+		let cyllinder = edit_state.cyllinder.as_mut().unwrap();
+		
+		edit_state.laplacian_system.setup_fixed_points(fixed_points);
+
+		edit_state.laplacian_system.solve(&mut cyllinder.spline.control_points);
 	    }
 	}
     }
