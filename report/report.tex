@@ -12,7 +12,7 @@
 
 \begin{document}
 
-\title{Intuitive Shape Grammar Construction}
+\title{ParaGem - An Intuitive Tool for Creating Procedural Content}
 
 \author{Håkon Flatval}
 
@@ -28,15 +28,23 @@
 
 \section{Introduction}
 
-Procedural generation is a powerful tool for artists to create a large amount of geometric entities that can incorporate both natural-looking variety and order alike. One of the most prominent problems with procedural generation today, is that even experts will use a lot of time and knowledge in order to successfully create a procedurally generated popuration of an entity of some kind.
+Procedural generation is a powerful tool for artists to create a large amount of geometric entities that can incorporate both natural-looking variety and order alike. One of the most prominent problems with procedural generation today, is that severe amounts of time and knowledge is required in order to successfully create a procedurally generated population of any kind of entity.
 
-In this paper, I will discuss an application that makes use of tools for artists that go beyond just creating geometry, by extending it to more high-level connections in-between primitives of the geometry, that can generalize well over parameter changes.
+In this report, I will discuss my project ParaGem, a modeling tool for artists that allows for specifying scalar parameters and high-level connections in-between primitives of the geometry. The intended purpose of the program is to enable creation of models whose geometry depends on a set of parameters, so that many variations of the same model can be produced by varying these parameters. The program is largely inspired by the work of Gingold et al. {\Large INSERT REFERENCE HERE}, both considering the choice of geometric primitives for modeling and representation of relations between geometric components.
 
-\section{Editor Algorithms}
+While ParaGem would be too simplistic for industrial use compared to commercial products offering procedural content tools, like Houdini {\Large INSERT REFERENCE HERE} and CityEngine {\Large INSERT REFERENCE HERE}, it is aimed to be a useful tool for gaining an intuition of the behavior of procedural content, and as a way for artists to communicate intentions related to procedural content e.g. how size, asymmetry and complexity can vary and are related between components of the model.
 
-\subsection{The Mathematics of the Laplacian Curve Editing}
+ParaGem is not finished, and I am therefore not able to report any user's experience of the program, nor its practical utility. Instead, I will present an overview of ParaGem's intended architecture (section \ref{section_architecture}), its different components (section \ref{section_components}), and the technical details of the underlying algorithms (section \ref{section_algorithms}).
 
-The following describes how we compute a new spline curve after one of the points has moved. This method is based on, similarily to Gingold et al. INSERT CITATION, the one used in \textit{Laplacian Surface Editing} by Sorkine et al. INSERT CITATION HERE. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice.
+\section{Architecture} \label{section_architecture}
+
+\section{Components} \label{section_components}
+
+\section{Algorithms} \label{section_algorithms}
+
+\subsection{Laplacian Curve Editing}
+
+The following describes how we compute a new spline curve after one of the points has moved. Similarily to the one used by Gingold et al. INSERT CITATION, this algorithm is based on \textit{Laplacian Surface Editing} by Sorkine et al. INSERT CITATION HERE. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice.
 
 Let the $V$ denote the initial positions of the control points before movement, consisting of the individual nodes positions $\mathbf{v}_i \in V$. Next, let $U \subset \mathbb{Z}$ be a set of indices refering to points we want to keep fixed, and let $\mathbf{u}_i$ be the fixed positions of $\mathbf{v}_i \in V$ for each $ i \in U$. Given the fixed positions $\mathbf{u}_i$ and the initial positions $V$, we want to compute the new positions $V'$, consisting of the individual positions $\mathbf{v}'_i \in V'$, that preserve the local structure of the curve, while also resembling the new fixed positions.
 
