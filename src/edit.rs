@@ -5,8 +5,8 @@ use crate::settings;
 use crate::program;
 use crate::cyllinder;
 use crate::laplacian;
-use crate::gui;
 use crate::splinedraw;
+use crate::annotation;
 
 static SELECTION_SENSITIVITY : f32 = 0.03;
 
@@ -20,8 +20,10 @@ pub struct EditState {
     pub ref_point: glm::Vec2,
     pub laplacian_system: laplacian::LaplacianEditingSystem,
     pub state : EditEnum,
-    pub cyllinder: Option<cyllinder::GeneralizedCyllinder>,
+    pub cyllinders: Vec<cyllinder::GeneralizedCyllinder>,
+    pub curr_cyllinder: usize,
 }
+
 
 impl EditState {
     pub fn new() -> EditState {
@@ -29,24 +31,31 @@ impl EditState {
 		    ref_point : glm::vec2(0.0, 0.0),
                     state : EditEnum::Selecting,
 		    laplacian_system : laplacian::LaplacianEditingSystem::empty(),
-		    cyllinder : None }
+		    cyllinders : Vec::new(),
+		    curr_cyllinder: usize::max_value() }
+    }
+
+    pub fn from_annotation_state(annotation_state : annotation::AnnotationState) -> EditState {
+	let mut ee = EditState::new();
+	ee.cyllinders = annotation_state.cyllinders;
+	ee.curr_cyllinder = annotation_state.curr_cyllinder;
+	ee
     }
 
     pub fn has_cyllinder(&self) -> bool {
-	match self.cyllinder {
-	    None => false,
-	    Some(_) => true
-	}
+	self.curr_cyllinder < self.cyllinders.len()
     }
 
     pub fn add_selected_point(&mut self, ind: usize) {
-	self.cyllinder.as_mut().unwrap().
+	let cyllinder = &mut self.cyllinders[self.curr_cyllinder];
+	cyllinder.
 	    spline.point_colors[ind] = glm::vec4(1.0, 0.0, 0.0, 1.0);
         self.selected_indices.push(ind);
     }
 
     pub fn clear_selected(&mut self) {
-	let cyllinder = self.cyllinder.as_mut().unwrap();
+	
+	let cyllinder = &mut self.cyllinders[self.curr_cyllinder];
 	for i in &self.selected_indices {
 	    cyllinder.spline.point_colors[*i] = glm::vec4(0.0, 0.0, 0.0, 1.0);
 	}
@@ -90,22 +99,9 @@ pub fn select_point(mouse_pos : glm::Vec2, points : &Vec<glm::Vec3>,
     return mindi; 
 }
 
-
-pub fn handle_gui_update(mut glfw_state: &mut crate::GLFWState,
-			 mut gui_state: &mut gui::GUIState,
-			 edit_state: &mut EditState) {
-    let old_gui_state = gui_state.clone();
-    gui::run_gui(&mut glfw_state, &mut gui_state);
-
-    if edit_state.has_cyllinder() && gui_state.using_peeling != old_gui_state.using_peeling {
-	edit_state.clear_selected();
-    }
-}
-
-
 pub fn handle_edit_no_peeling(proj : &glm::Mat4, input_state: &program::InputState,
 			      edit_state : &mut EditState) {
-    let cyllinder = edit_state.cyllinder.as_mut().unwrap();
+    let cyllinder = &mut edit_state.cyllinders[edit_state.curr_cyllinder];
     match edit_state.state {
         EditEnum::Selecting => {
             if input_state.mouse_state.button1_pressed {
@@ -197,7 +193,9 @@ pub fn handle_edit_no_peeling(proj : &glm::Mat4, input_state: &program::InputSta
 
 pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputState,
 				edit_state : &mut EditState) {
-    let cyllinder = &mut edit_state.cyllinder.as_mut().unwrap();
+    // let cyllinder = &mut edit_state.cyllinder.as_mut().unwrap();
+    
+    let cyllinder = &mut edit_state.cyllinders[edit_state.curr_cyllinder];
     match edit_state.state {
 	EditEnum::Selecting => {
 	    if input_state.mouse_state.button1_pressed {
@@ -251,7 +249,7 @@ pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputS
 		fixed_points.push(s1 as usize);
 
 		// Must redeclare to release mutable borrow for above section
-		let cyllinder = edit_state.cyllinder.as_mut().unwrap();
+		let cyllinder = &mut edit_state.cyllinders[edit_state.curr_cyllinder];
 		
 		edit_state.laplacian_system.setup_fixed_points(fixed_points);
 
@@ -273,8 +271,9 @@ pub fn handle_edit_operation(proj : &glm::Mat4, input_state: &program::InputStat
     }
 
     
-    edit_state.cyllinder.as_mut().unwrap().update_mesh();
+    let cyllinder = &mut edit_state.cyllinders[edit_state.curr_cyllinder];
+    cyllinder.update_mesh();
 
-    edit_state.cyllinder.as_mut().unwrap().spline.update_gpu_state();
+    cyllinder.spline.update_gpu_state();
 
 }

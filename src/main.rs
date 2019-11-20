@@ -20,6 +20,7 @@ mod edit;
 mod utils;
 mod laplacian;
 mod gui;
+mod annotation;
 
 pub struct Object {
     vao: gl::types::GLuint, 

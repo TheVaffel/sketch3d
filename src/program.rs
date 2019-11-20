@@ -8,6 +8,7 @@ use crate::{ModelerState, GLFWState};
 use std::ffi::{CString};
 use std::f32;
 use num_traits::identities::One;
+use std::mem;
 
 use crate::settings;
 use crate::shaders;
@@ -18,6 +19,7 @@ use crate::cyllinder;
 use crate::utils;
 use crate::edit;
 use crate::gui;
+use crate::annotation;
 
 pub struct MouseState {
     pub pos: glm::Vec2,
@@ -34,9 +36,23 @@ impl MouseState {
 
 pub enum ProgramState {
     Draw,
-    Edit,
+    Edit(edit::EditState),
+    Annotate(annotation::AnnotationState),
 }
 
+pub static PS_DRAW_NUM : usize = 0;
+pub static PS_EDIT_NUM : usize = 1;
+pub static PS_ANNOTATE_NUM : usize = 2;
+
+impl ProgramState {
+    pub fn to_num(&self) -> usize {
+	match self {
+	    ProgramState::Draw => PS_DRAW_NUM,
+	    ProgramState::Edit(_) => PS_EDIT_NUM,
+	    ProgramState::Annotate(_) => PS_ANNOTATE_NUM,
+	}
+    }
+}
 
 // What keys are pressed?
 pub struct KeyState {
@@ -70,24 +86,46 @@ pub fn setup_objects() -> ModelerState {
     ModelerState { objects: vec![cone, sphere, cube, triangle,],}
 }
 
-fn handle_draw_operation(mut spline_state : splinedraw::SplineState,
-			 edit_state : &mut edit::EditState,
-			 input_state: &InputState) -> (ProgramState, splinedraw::SplineState) {
+
+pub fn handle_gui_update(program_state: &mut ProgramState,
+			 mut glfw_state: &mut crate::GLFWState,
+			 mut gui_state: &mut gui::GUIState) {
+    let old_gui_state = gui_state.clone();
+    let old_program_num = program_state.to_num();
+    gui::run_gui(program_state, &mut glfw_state, &mut gui_state);
+
+    
+    match program_state {
+	ProgramState::Edit(ref mut edit_state) => {
+	    if edit_state.has_cyllinder() &&
+		(gui_state.using_peeling != old_gui_state.using_peeling ||
+		 PS_EDIT_NUM != old_program_num) {
+		    edit_state.clear_selected();
+		}
+	},
+	_ => {}
+    }
+}
+
+
+fn handle_draw_operation(mut spline_state : &mut splinedraw::SplineState,
+			 input_state: &InputState) -> Option<cyllinder::GeneralizedCyllinder> {
     if input_state.key_state.enter {
 	if spline_state.control_points.len() >= 2 {
-	    let cyllinder_object = cyllinder::create_cyllinder(0.1, 5, spline_state);
+	    let mut tmp_spline = splinedraw::SplineState::new();
+	    mem::swap(&mut tmp_spline, spline_state);
+	    let cyllinder_object = cyllinder::create_cyllinder(0.1, 5, tmp_spline);
+	    // *spline_state = splinedraw::SplineState::new();
 
-	    // cyllinders.push(cyllinder_object);
-	    edit_state.cyllinder = Some(cyllinder_object);
-	    return (ProgramState::Edit, splinedraw::SplineState::new());
+	    return Some(cyllinder_object);
 	}
     } else {
 	splinedraw::handle_spline_draw(&input_state.mouse_state, &mut spline_state);
     }
 
-    
-    (ProgramState::Draw, spline_state)
+    None
 }
+			 
 
 pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 
@@ -101,9 +139,6 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 
     let mut input_state = InputState { mouse_state, key_state, gui_state };
 
-    let mut edit_state =
-	edit::EditState::new();
-
     let mut spline_state = splinedraw::SplineState::new();
 
     let mut line_objects = Vec::new();
@@ -111,10 +146,7 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 	line_objects.push(lineobjects::create_line_object(&modeler_state.objects[i].vertices,
 							  &modeler_state.objects[i].indices));
     }
-    
-
-    // let mut cyllinders : Vec<cyllinder::GeneralizedCyllinder> = Vec::new();
-    
+        
     unsafe {
 	
 	gl::Enable(gl::DEPTH_TEST);
@@ -148,14 +180,15 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
     shader_program.activate();
 
 	
-    let mut count = 0;
+    let mut _count = 0;
 
     let mut program_state = ProgramState::Draw;
-    
+
+        
     // Loop until the user closes the window
     while !glfw_state.window.should_close() {
 
-	count += 1;
+	_count += 1;
 	
 	let r :f32 = 1.0;
 	// let phi : f32 = 0.5;
@@ -179,23 +212,32 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 	}
 
 	shader_program.activate();
-	// for i in 0..cyllinders.len() {
-	if edit_state.has_cyllinder() {
-	    let model_trans = glm::ext::translate(&glm::Matrix4::one(),
-						  glm::vec3(0.0, 0.0,
-							    -1.0 // (i as f32 - cyllinders.len() as f32
-							     + 1.0) * 2.5);
-	    
-	    let trans = trans * model_trans; 
+	match program_state {
+	    ProgramState::Edit(ref edit_state) => {
+		
+		if edit_state.has_cyllinder() {
+		    let model_trans = glm::ext::translate(&glm::Matrix4::one(),
+							  glm::vec3(0.0, 0.0,
+								    -1.0 
+								    + 1.0) * 2.5);
+		    
+		    let trans = trans * model_trans; 
 
-	    
-	    cyllinder::draw_cyllinder(edit_state.cyllinder.as_ref().unwrap(),
-				      &shader_program,
-				      &world_line_program,
-				      &trans);
+		    
+		    cyllinder::draw_cyllinder(&edit_state.cyllinders[edit_state.curr_cyllinder],
+					      &shader_program,
+					      &world_line_program,
+					      &trans);
+		}
+	    },
+	    _ => {}
 	}
 
-	edit::handle_gui_update(&mut glfw_state, &mut input_state.gui_state, &mut edit_state);
+	// Handle GUI
+
+	handle_gui_update(&mut program_state,
+			  &mut glfw_state,
+			  &mut input_state.gui_state);
 	
 	// Poll for and process events
 	glfw_state.glfw.poll_events();
@@ -248,20 +290,31 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 
 	match program_state  {
 	    ProgramState::Draw => {
-		let (t_program_state, t_spline_state) = handle_draw_operation(spline_state, &mut edit_state,
-									      &input_state);
+		let o_cyllinder = handle_draw_operation(&mut spline_state,
+							&input_state);
+		match o_cyllinder {
+		    Some(cyllinder) => {
+			let mut edit = edit::EditState::new();
+			edit.cyllinders.push(cyllinder);
+			edit.curr_cyllinder = 0;
+			program_state = ProgramState::Edit(edit);
 
-		program_state = t_program_state;
-		spline_state = t_spline_state;
+		    },
+		    _ => { }
+		}
 		
 		screen_line_program.activate();
 		spline_state.update_gpu_state();
 		splinedraw::draw_spline_lines(&spline_state);
 	    },
-	    ProgramState::Edit => {
+	    ProgramState::Edit(ref mut edit_state) => {
 		edit::handle_edit_operation(&proj,
-					    &input_state, &mut edit_state);
-	    }
+					    &input_state, edit_state);
+	    },
+	    ProgramState::Annotate(ref mut annotation_state) => {
+		annotation::handle_annotation(&proj,
+					      &input_state, annotation_state);
+	    },
 	}
 
 	
