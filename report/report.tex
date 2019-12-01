@@ -1,4 +1,5 @@
 \documentclass[english]{article}
+
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{babel}
@@ -6,6 +7,9 @@
 \usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{fancyhdr}
+\usepackage{hyperref}
+
+
 \fancyhf{}
 \renewcommand{\headrulewidth}{0pt}
 \setlength{\headheight}{40pt}
@@ -22,21 +26,47 @@
 \begin{center}
 
   % Life hack, create abstract before anyone tells you it's impossible to achieve what you are doing
-  {\bf \Large Abstract:} Procedural generation with shape grammars is powerful, but is unintuitive and time consuming to specify, even for experts. In this project, I have looked closer at generating geometric shape grammars more intuitively, by allowing the user to get real-time feedback on their changes to the grammar. The created application allows the user to draw and specify the shape by using primitives. The primitives can be linked together with \textit{pivot points}, for which the user will specify rules, which they will adhere to when the model is used for generating a large amount of objects procedurally. Letting the user specify complicated structure and connections turns out to be favorable in many situations, despite requiring a bit of technical knowledge by the artist.
+  {\bf Abstract:} Procedural generation with shape grammars is powerful, but is unintuitive and time consuming to specify, even for experts. In this project, I have looked closer at generating geometric shape grammars more intuitively, by allowing the user to get real-time feedback on their changes to the grammar. The created application allows the user to draw and specify the shape by using primitives. The primitives can be linked together with \textit{pivot points}, for which the user will specify rules, which they will adhere to when the model is used for generating a large amount of objects procedurally. Letting the user specify complicated structure and connections turns out to be favorable in many situations, despite requiring a bit of technical knowledge by the artist.
   
 \end{center}
 
 \section{Introduction}
 
-Procedural generation is a powerful tool for artists to create a large amount of geometric entities that can incorporate both natural-looking variety and order alike. One of the most prominent problems with procedural generation today, is that severe amounts of time and knowledge is required in order to successfully create a procedurally generated population of any kind of entity.
+Procedural generation is a powerful tool for artists, enabling them to create a large amount of geometric entities that can incorporate both natural-looking variety and order alike. One of the most prominent problems with procedural generation today, is that a significant amount of time and knowledge is required in order to successfully create a procedurally generated population of any kind of entity.
 
-In this report, I will discuss my project ParaGem, a modeling tool for artists that allows for specifying scalar parameters and high-level connections in-between primitives of the geometry. The intended purpose of the program is to enable creation of models whose geometry depends on a set of parameters, so that many variations of the same model can be produced by varying these parameters. The program is largely inspired by the work of Gingold et al. {\Large INSERT REFERENCE HERE}, both considering the choice of geometric primitives for modeling and representation of relations between geometric components.
+In this document, I will discuss my project ParaGem, a modeling tool for artists that allows for specifying scalar parameters and high-level connections in-between primitives of the geometry. The intended purpose of the program is to enable creation of models whose geometry depends on a set of parameters, so that many variations of the same model can be produced by varying these parameters. The program is largely inspired by Structured Annotations introduced by  Gingold et al. \cite{gingold09}, both considering the choice of geometric primitives for modeling and representation of relations between model components.
 
-While ParaGem would be too simplistic for industrial use compared to commercial products offering procedural content tools, like Houdini {\Large INSERT REFERENCE HERE} and CityEngine {\Large INSERT REFERENCE HERE}, it is aimed to be a useful tool for gaining an intuition of the behavior of procedural content, and as a way for artists to communicate intentions related to procedural content e.g. how size, asymmetry and complexity can vary and are related between components of the model.
+While ParaGem would be too simplistic for industrial use compared to commercial procedural content tools, like SideFX' Houdini \cite{houdini} and Esri's CityEngine \cite{cityengine}, it is rather aimed to be a useful tool for gaining an intuition of the behavior of procedural content, and as a way for artists to communicate their intentions of procedural content e.g. how size, asymmetry and complexity can vary and are related between components of the model.
 
-ParaGem is not finished, and I am therefore not able to report any user's experience of the program, nor its practical utility. Instead, I will present an overview of ParaGem's intended architecture (section \ref{section_architecture}), its different components (section \ref{section_components}), and the technical details of the underlying algorithms (section \ref{section_algorithms}).
+ParaGem is not finished, and I am therefore not able to report any user experience of the program, nor its practical utility. However, I will present an overview of ParaGem (section \ref{section_architecture}), its different components (section \ref{section_components}), and the technical details of the underlying algorithms (section \ref{section_algorithms}). At last, I will highlight what further work must be conducted to finish the application, and ideas for future directions of the project (section \ref{section_future_work}).
 
-\section{Architecture} \label{section_architecture}
+I will start off with a survey of related work.
+
+\section{Related Work}
+
+Although my work is within the field of procedural content generation, it has many aspects related to 3D-modeling, and in particular, sketch-based 3D-modeling.
+
+\subsection{Procedural Content}
+
+Procedural content generation (PCG) is by no means a new subject. PCG has been used in modeling diverse entities like plants \cite{plant_l_system}, buildings \cite{building_shape_grammar}, cities \cite{procedural_city_modeling}, and terrains \cite{early_terrain_generation} for a long time. 
+
+
+Many surveys exist, focusing on generation of different types of content. The recent survey by Galin et al. \cite{terrain_survey_2019} provides an extensive survey of terrain generation. Hendrikx et al. \cite{pcg_survey_2013} and Carli et al. \cite{brazilian_pcg_survey} both consider procedural content as used in games. Freiknecht et al. \cite{pcg_survey_2017} also consider games in their survey, but also includes PCG in domains outside computer graphics, like NPC interaction and quests. The adaption into industry is also well-documented (e.g. \cite{amato2017}).
+
+One popular way of realizing PCG is through the use of shape grammars \cite{stiny2006shape}. Shape grammars are probabilistic formal grammars where terminal symbols can correspond geometric meshes -- primitive shapes. Like normal grammars, shape grammars work by repeatedly replacing symbols with other symbols using production rules until only terminal symbols remain, and then produce geometry from the resulting string. Shape grammars have been successfully used for modeling buildings \cite{building_shape_grammar} and plants (with L-systems, that are closely related to shape grammars) \cite{plant_l_system}.
+
+
+%The power of procedural generation has been proven in the creation of plants (SOME CITATION), buildings (SOME OTHER CITATION) and even whole cities (THAT PARISH PAPER, YOU KNOW). There are various ways of seeding procedural generation, shape grammars being among the most popular ones.
+
+\subsection{Sketch-Based Modeling}
+
+3D-modeling is a task that requires significant effort and specialized experience to perform successfully and efficiently, making it a bottleneck when communicating three-dimensional models by e.g. artists. Sketch-based modeling is one attempt at overcoming this challenge. 
+
+
+
+The goal of this project has been to unite the power of procedural content generation with the simplicity of sketch-based modeling. The goal is to create a new, simple way of communicating geometric entities that also encapsulates information about natural variation.
+
+\section{Overview} \label{section_architecture}
 
 \section{Components} \label{section_components}
 
@@ -44,9 +74,9 @@ ParaGem is not finished, and I am therefore not able to report any user's experi
 
 \subsection{Laplacian Curve Editing}
 
-The following describes how we compute a new spline curve after one of the points has moved. Similarily to the one used by Gingold et al. INSERT CITATION, this algorithm is based on \textit{Laplacian Surface Editing} by Sorkine et al. INSERT CITATION HERE. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice.
+The following describes how we compute a new spline curve after one of the points has moved. Similarily to the one used by Gingold et al. \cite{gingold09}, this algorithm is based on \textit{Laplacian Surface Editing} by Sorkine et al. \cite{sorkine04}. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice.
 
-Let the $V$ denote the initial positions of the control points before movement, consisting of the individual nodes positions $\mathbf{v}_i \in V$. Next, let $U \subset \mathbb{Z}$ be a set of indices refering to points we want to keep fixed, and let $\mathbf{u}_i$ be the fixed positions of $\mathbf{v}_i \in V$ for each $ i \in U$. Given the fixed positions $\mathbf{u}_i$ and the initial positions $V$, we want to compute the new positions $V'$, consisting of the individual positions $\mathbf{v}'_i \in V'$, that preserve the local structure of the curve, while also resembling the new fixed positions.
+Let the $V$ denote the initial positions of the control points before movement, consisting of the individual nodes positions $\mathbf{v}_i \in V$. Next, let $U \subset \mathbb{Z}$ be a set of indices refering to points we want to keep fixed, and let $\mathbf{u}_i$ be the fixed positions of $\mathbf{v}_i \in V$ for each $ i \in U$. Given the fixed positions $\mathbf{u}_i$ and the initial positions $V$, we want to compute the new positions $V'$, consisting of the individual positions $\mathbf{v}'_i \in V'$, that preserve the local structure of the curve, while also conforming to the new fixed positions.
 
 In practice, $V$ will be a column vector of length $2n$, $n$ being the number of points. The $n$ first elements will be the $x$-coordinates of the points $\mathbf{v}_{i_x}$, $i \in [1..n]$, and the final $n$ elements will be the $y$-coordinates. $V'$ will have a similar structure.
 
@@ -182,14 +212,29 @@ B^TBV' = B^T\mathbf{c}
 \],
 so that, in the end, we find the new curve vertices $V'$.
 
-\subsection*{Modifications}
+\subsection{Modifications}
 
 Although the Laplacian Curve Editing approach provides a satisfying approach to edit a curve, the fixed points were found to move an unacceptable amount due to having a least-squares constraint and not being completely fixed. We probably encounter this problem because, unlike Sorkine et al., we have a limited number of vertices in the spline (usually less than 100), which make them more apt to move larger distances than if we had, say, tens of thousands of vertices, like in the meshes used by Sorkine et al.
 
 This is fixed with a larger weight on the fixed-point terms of the optimization objective, practically conducted by multiplying both the non-zero elements of the $2|U|$ bottom rows of $B$ and the last $2|U|$ elements of $\mathbf{c}$ by the same constant factor.
 
-\section{Related Work}
+\section{Future Work} \label{section_future_work}
 
-The power of procedural generation has been proven in the creation of plants (SOME CITATION), buildings (SOME OTHER CITATION) and even whole cities (THAT PARISH PAPER, YOU KNOW). There are various ways of seeding procedural generation, shape grammars being among the most popular ones.
+% I go through both what is needed to finish this project, and 
+
+\subsection{Work Remaining for Project Finish}
+
+\subsection{Future Directions}
+
+% Mention textures (noise-driven?), 
+
+% Include \cite{schmidt08} - work that is a bit more related to what I have in mind (but perhaps not as ambitious, with recursion and stuff).
+  
+\section{Conclusions}
+
+% Project not finished, but we have shown examples of it working (make sure to actually show examples of it working)
+
+\bibliography{report}
+\bibliographystyle{plain}
 
 \end{document}
