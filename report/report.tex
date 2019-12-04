@@ -56,14 +56,13 @@ Many surveys exist, focusing on generation of different types of content. The re
 
 One popular way of realizing PCG is through the use of shape grammars \cite{stiny2006shape}. Shape grammars are probabilistic formal grammars where terminal symbols can correspond geometric meshes -- primitive shapes. Like normal grammars, shape grammars work by repeatedly replacing symbols with other symbols using production rules until only terminal symbols remain, and then produce geometry from the resulting string. Shape grammars have been successfully used for modeling buildings \cite{building_shape_grammar} and plants \cite{plant_l_system} (with L-systems, that are closely related to shape grammars).
 
-
-%The power of procedural generation has been proven in the creation of plants (SOME CITATION), buildings (SOME OTHER CITATION) and even whole cities (THAT PARISH PAPER, YOU KNOW). There are various ways of seeding procedural generation, shape grammars being among the most popular ones.
-
 \subsection{Sketch-Based Modeling} \label{subsection_review_sketch}
 
 3D-modeling is a task that requires significant effort and specialized experience to perform successfully and efficiently, making it a bottleneck when communicating three-dimensional models by e.g. artists. Sketch-based modeling is one attempt at overcoming this challenge. 
 
 \cite{gingold09} is an example of such an approach, where the user creates 3D models out of pre-defined primitive. Their most important primitive is the generalized cylinder, a shape of circular cross-section that is extruded along a spline in three dimensions. The user inputs strokes to define the spline, from which the application creates the generalized cylinder.
+
+% MENTION THE KINDA IMPORTANT ANNOTATION SYSTEM
 
 At extension of Gingold et al.'s approach was presented by Kazmi et al. \cite{hybrid_character_modeling}, where heightmaps are created from textures, which can be turned into fine-grained detail 
 
@@ -300,19 +299,23 @@ B^TBV' = B^T\mathbf{c}
 \],
 so that, in the end, we find the new curve vertices $V'$.
 
-\subsection{Modifications}
+\subsubsection{Harder Restrictions on Fixed Points}
 
-Although the Laplacian Curve Editing approach provides an intuitive approach to editing the curve, the fixed points were found to move an unacceptable amount due to having a least-squares constraint and not being completely fixed. We probably encounter this problem because, unlike Sorkine et al., we have a limited number of vertices in the spline (usually less than 100), which make them more apt to move larger distances than if we had, say, tens of thousands of vertices, like in the meshes used by Sorkine et al.
+Although the Laplacian Curve Editing approach provides an intuitive approach to editing the curve, the fixed points were found to move an unacceptable amount due to having a least-squares constraint and not being completely fixed. ParaGem probably encounters this problem because the ratio of the number movable points to the number of fixed points is generally higher than in the work by Sorkine et al., so that the quadratic objective function receive less influence from the fixed points altogether.
 
-This is fixed with a larger weight on the fixed-point terms of the optimization objective, practically conducted by multiplying both the non-zero elements of the $2|U|$ bottom rows of $B$ and the last $2|U|$ elements of $\mathbf{c}$ by the same constant factor.
+This is fixed by imposing a larger weight on the fixed-point terms of the optimization objective, implemented by multiplying both the non-zero elements of the $2|U|$ bottom rows of $B$ and the last $2|U|$ elements of $\mathbf{c}$ by the same constant factor.
 
-% Add comment about peeling
+\subsubsection{Peeling}
 
+In addition to traditional Laplacian curve editing, I have also implemented \textit{peeling}, as presented in \cite{rigid_igarashi} and used in \cite{gingold09}. Peeling is closely related to Laplacian curve editing, but while the latter requires a pre-specified region of movable points (the Region of Interest), this region is dynamic in peeling. More specifically, the user starts by choosing a single point of the curve, and drags it in the desired direction. The region of interest grows along the curve in both directions as the user drags the point. The further away from the original position the point is dragged, the greater the region of interest becomes.
+
+Both peeling and traditional Laplacian curve editing are implemented and available for the user.
 
 \pagebreak
 
 \section{Implementation Details} \label{section_implementation}
 
+% Is there much to say here? Used Rust? Used OpenGL, ImGUI, nalgebra..
 
 \pagebreak
 
