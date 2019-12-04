@@ -15,7 +15,7 @@ use crate::shaders;
 use crate::objects;
 use crate::lineobjects;
 use crate::splinedraw;
-use crate::cyllinder;
+use crate::cylinder;
 use crate::utils;
 use crate::edit;
 use crate::gui;
@@ -97,7 +97,7 @@ pub fn handle_gui_update(program_state: &mut ProgramState,
     
     match program_state {
 	ProgramState::Edit(ref mut edit_state) => {
-	    if edit_state.has_cyllinder() &&
+	    if edit_state.has_cylinder() &&
 		(gui_state.using_peeling != old_gui_state.using_peeling ||
 		 PS_EDIT_NUM != old_program_num) {
 		    edit_state.clear_selected();
@@ -109,15 +109,15 @@ pub fn handle_gui_update(program_state: &mut ProgramState,
 
 
 fn handle_draw_operation(mut spline_state : &mut splinedraw::SplineState,
-			 input_state: &InputState) -> Option<cyllinder::GeneralizedCyllinder> {
+			 input_state: &InputState) -> Option<cylinder::GeneralizedCylinder> {
     if input_state.key_state.enter {
 	if spline_state.control_points.len() >= 2 {
 	    let mut tmp_spline = splinedraw::SplineState::new();
 	    mem::swap(&mut tmp_spline, spline_state);
-	    let cyllinder_object = cyllinder::create_cyllinder(0.1, 5, tmp_spline);
+	    let cylinder_object = cylinder::create_cylinder(0.1, 5, tmp_spline);
 	    // *spline_state = splinedraw::SplineState::new();
 
-	    return Some(cyllinder_object);
+	    return Some(cylinder_object);
 	}
     } else {
 	splinedraw::handle_spline_draw(&input_state.mouse_state, &mut spline_state);
@@ -215,7 +215,7 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 	match program_state {
 	    ProgramState::Edit(ref edit_state) => {
 		
-		if edit_state.has_cyllinder() {
+		if edit_state.has_cylinder() {
 		    let model_trans = glm::ext::translate(&glm::Matrix4::one(),
 							  glm::vec3(0.0, 0.0,
 								    -1.0 
@@ -224,7 +224,7 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 		    let trans = trans * model_trans; 
 
 		    
-		    cyllinder::draw_cyllinder(&edit_state.cyllinders[edit_state.curr_cyllinder],
+		    cylinder::draw_cylinder(&edit_state.cylinders[edit_state.curr_cylinder],
 					      &shader_program,
 					      &world_line_program,
 					      &trans);
@@ -290,13 +290,13 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 
 	match program_state  {
 	    ProgramState::Draw => {
-		let o_cyllinder = handle_draw_operation(&mut spline_state,
+		let o_cylinder = handle_draw_operation(&mut spline_state,
 							&input_state);
-		match o_cyllinder {
-		    Some(cyllinder) => {
+		match o_cylinder {
+		    Some(cylinder) => {
 			let mut edit = edit::EditState::new();
-			edit.cyllinders.push(cyllinder);
-			edit.curr_cyllinder = 0;
+			edit.cylinders.push(cylinder);
+			edit.curr_cylinder = 0;
 			program_state = ProgramState::Edit(edit);
 
 		    },
@@ -314,6 +314,11 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 	    ProgramState::Annotate(ref mut annotation_state) => {
 		annotation::handle_annotation(&proj,
 					      &input_state, annotation_state);
+
+		// annotation::update_gpu_annotation_state(&annotation_state, 
+		
+		annotation::draw_annotations(&annotation_state,
+					     &world_line_program);
 	    },
 	}
 

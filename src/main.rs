@@ -15,7 +15,7 @@ mod shaders;
 mod objects;
 mod lineobjects;
 mod splinedraw;
-mod cyllinder;
+mod cylinder;
 mod edit;
 mod utils;
 mod laplacian;

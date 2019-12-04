@@ -258,7 +258,7 @@ pub fn create_cone_object(radius :f32,
 
 /*
 
-Object* createGeneralizedCyllinderObject(float radius, float length, int circ_resolution, int len_resolution) {
+Object* createGeneralizedCylinderObject(float radius, float length, int circ_resolution, int len_resolution) {
     int num_end_triangles = (2 * circ_resolution * (circ_resolution - 1)) * 2 + 2 * circ_resolution; // The hemisphere at each end: 2 * resolution panes around its circumference, resolution - 1 of those in height, and then 2 * resolution triangles to close it on top.
 
     int num_base_triangles = len_resolution * 2 * circ_resolution * 2; // len_resolution panes in length, 2 * circ_resolution panes in circumference. Two triangles per pane

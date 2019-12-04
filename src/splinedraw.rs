@@ -195,6 +195,10 @@ impl SplineState {
 
 		self.spline_points.push(pp);
 		spline_colors.push(cp);
+
+		if cp[0] != 0.0 || cp[1] != 0.0 || cp[2] != 0.0 {
+		    println!("{:?}", cp);
+		}
 	    }
 
 	    /* for _i in 0..SPLINE_DEGREE {

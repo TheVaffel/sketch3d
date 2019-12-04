@@ -9,7 +9,7 @@ use crate::Object;
 
 use std::f32;
 
-pub struct GeneralizedCyllinder {
+pub struct GeneralizedCylinder {
     radius : f32,
     circ_resolution : usize,
     pub object : Object,
@@ -17,9 +17,9 @@ pub struct GeneralizedCyllinder {
     pub spline : splinedraw::SplineState,
 }
 
-impl GeneralizedCyllinder {
-    pub fn update_mesh(self : &mut GeneralizedCyllinder) {
-        let (vertices, indices) = get_cyllinder_values(self.radius, self.circ_resolution, &self.spline);
+impl GeneralizedCylinder {
+    pub fn update_mesh(self : &mut GeneralizedCylinder) {
+        let (vertices, indices) = get_cylinder_values(self.radius, self.circ_resolution, &self.spline);
 
         self.object.vertices = vertices;
         self.object.indices = indices;
@@ -29,7 +29,7 @@ impl GeneralizedCyllinder {
     }
 }
 
-pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
+pub fn draw_cylinder(generalized_cylinder : &GeneralizedCylinder,
 		      body_program : &shaders::ShaderProgram,
 		      line_program : &shaders::ShaderProgram,
 		      transform : &glm::Mat4) {
@@ -65,12 +65,12 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
 		       1, &black_color[0]);
 	
 	gl::LineWidth(1.0);
-	gl::BindVertexArray(generalized_cyllinder.line_object.all_vao);
+	gl::BindVertexArray(generalized_cylinder.line_object.all_vao);
 
 	gl::DisableVertexAttribArray(1);
 	gl::DrawElements(
 	    gl::LINES,
-	    generalized_cyllinder.line_object.all_indices.len() as gl::types::GLsizei,
+	    generalized_cylinder.line_object.all_indices.len() as gl::types::GLsizei,
 	    gl::UNSIGNED_INT,
 	    std::ptr::null());
 
@@ -80,10 +80,10 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
 	gl::Uniform4fv(color_location,
 		       1, &white_color[0]);
 	
-	gl::BindVertexArray(generalized_cyllinder.object.vao);
+	gl::BindVertexArray(generalized_cylinder.object.vao);
 	gl::DrawElements(
 	    gl::TRIANGLES,
-	    generalized_cyllinder.object.indices.len() as gl::types::GLsizei,
+	    generalized_cylinder.object.indices.len() as gl::types::GLsizei,
 	    gl::UNSIGNED_INT,
 	    std::ptr::null());
 
@@ -91,11 +91,11 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
 		       1, &black_color[0]);
 	gl::LineWidth(2.0);
 
-	gl::BindVertexArray(generalized_cyllinder.line_object.vao);
-	// println!("Number of lines to draw: {}", generalized_cyllinder.line_object.indices.len());
+	gl::BindVertexArray(generalized_cylinder.line_object.vao);
+	// println!("Number of lines to draw: {}", generalized_cylinder.line_object.indices.len());
 	gl::DrawElements(
 	    gl::LINES,
-	    generalized_cyllinder.line_object.indices.len() as gl::types::GLsizei,
+	    generalized_cylinder.line_object.indices.len() as gl::types::GLsizei,
 	    gl::UNSIGNED_INT,
 	    std::ptr::null());
 
@@ -117,16 +117,16 @@ pub fn draw_cyllinder(generalized_cyllinder : &GeneralizedCyllinder,
     }
 
     
-    splinedraw::draw_spline_lines(&generalized_cyllinder.spline);
+    splinedraw::draw_spline_lines(&generalized_cylinder.spline);
 
-    splinedraw::draw_control_points(&generalized_cyllinder.spline);
+    splinedraw::draw_control_points(&generalized_cylinder.spline);
 
     unsafe {
 	gl::Enable(gl::DEPTH_TEST);
     }
 }
 
-pub fn get_cyllinder_values(radius : f32,
+pub fn get_cylinder_values(radius : f32,
                             circ_resolution: usize,
                             spline_state : &splinedraw::SplineState)
                             -> (Vec<f32>, Vec<u32>) {
@@ -303,15 +303,15 @@ pub fn get_cyllinder_values(radius : f32,
     (vertices, indices)
 }
 
-pub fn create_cyllinder(radius : f32,
+pub fn create_cylinder(radius : f32,
 			circ_resolution: usize,
-			mut spline_state : splinedraw::SplineState) -> GeneralizedCyllinder {
+			mut spline_state : splinedraw::SplineState) -> GeneralizedCylinder {
     
     splinedraw::spline_screen_to_world_transform(&mut spline_state);
     
-    let (vertices, indices) = get_cyllinder_values(radius, circ_resolution, &spline_state);
+    let (vertices, indices) = get_cylinder_values(radius, circ_resolution, &spline_state);
 
-    GeneralizedCyllinder {
+    GeneralizedCylinder {
 	line_object: lineobjects::create_line_object(&vertices, &indices),
 	object: objects::create_object(vertices, indices),
 	spline: spline_state,

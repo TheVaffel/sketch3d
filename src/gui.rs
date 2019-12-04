@@ -20,23 +20,7 @@ impl Clone for GUIState {
     }
 }
 
-/* fn gui_base(ui: &mut UI, glfw_state: &mut GLFWState) {
-    
-}
-
-fn get_ui(glfw_state: &mut GLFWState) -> UI {
-    glfw_state.impui_glfw_context.frame(&mut glfw_state.window, &mut glfw_state.imgui_context);
-}
-
-pub fn handle_draw_gui(program_state: &mut program::ProgramState,
-		       glfw_state: &mut GLFWState, gui_state: &mut GUIState) {
-    let ui = get_ui (glfw_state);
-
-    Window::new(imstr!("Hello"))
-	.size([300.0, 300.0]
-} */
-
-pub fn run_gui(mut program_state: &mut program::ProgramState,
+pub fn run_gui(program_state: &mut program::ProgramState,
 	       glfw_state: &mut GLFWState, gui_state: &mut GUIState) {
     let ui = glfw_state.imgui_glfw_context.frame(&mut glfw_state.window, &mut glfw_state.imgui_context);
     // ui.show_demo_window(&mut true);
