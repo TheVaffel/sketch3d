@@ -20,8 +20,10 @@ impl Clone for GUIState {
     }
 }
 
-pub fn run_gui(program_state: &mut program::ProgramState,
-	       glfw_state: &mut GLFWState, gui_state: &mut GUIState) {
+pub fn run_gui(session: &mut program::Session,
+	       mut program_state: &mut program::ProgramState,
+	       glfw_state: &mut GLFWState,
+	       gui_state: &mut GUIState) {
     let ui = glfw_state.imgui_glfw_context.frame(&mut glfw_state.window, &mut glfw_state.imgui_context);
     // ui.show_demo_window(&mut true);
 
@@ -50,7 +52,7 @@ pub fn run_gui(program_state: &mut program::ProgramState,
 		
 		
 		let mut ps2 = program::ProgramState::Draw;
-		mem::swap(&mut ps2, program_state);
+		mem::swap(&mut ps2, &mut program_state);
 		
 		if prog_num == program::PS_EDIT_NUM {
 		    match ps2 {
@@ -73,8 +75,15 @@ pub fn run_gui(program_state: &mut program::ProgramState,
 		    match ps2 {
 			program::ProgramState::Edit(edit_state) => {
 			    *program_state = program::ProgramState::Annotate(
-				annotation::AnnotationState::new(edit_state)
+				annotation::AnnotationState::new(edit_state, session)
 			    );
+
+			    /* session.annotations = vec![Box::<annotation::SizeAnnotation>::
+						       from(annotation::SizeAnnotation
+							    { size: 1.0, cylinder_index: 0, index: 0 }),
+						       Box::<annotation::SizeAnnotation>::
+						       from(annotation::SizeAnnotation
+							    { size: 2.0, cylinder_index: 0, index: 5 })]; */
 			    
 			},
 			

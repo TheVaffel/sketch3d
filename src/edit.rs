@@ -20,7 +20,6 @@ pub struct EditState {
     pub ref_point: glm::Vec2,
     pub laplacian_system: laplacian::LaplacianEditingSystem,
     pub state : EditEnum,
-    pub cylinders: Vec<cylinder::GeneralizedCylinder>,
     pub curr_cylinder: usize,
 }
 
@@ -31,31 +30,31 @@ impl EditState {
 		    ref_point : glm::vec2(0.0, 0.0),
                     state : EditEnum::Selecting,
 		    laplacian_system : laplacian::LaplacianEditingSystem::empty(),
-		    cylinders : Vec::new(),
+		    // cylinders : Vec::new(),
 		    curr_cylinder: usize::max_value() }
     }
 
     pub fn from_annotation_state(annotation_state : annotation::AnnotationState) -> EditState {
 	let mut ee = EditState::new();
-	ee.cylinders = annotation_state.cylinders;
-	ee.curr_cylinder = annotation_state.curr_cylinder;
+	// ee.cylinders = annotation_state.cylinders;
+	ee.curr_cylinder = 0;
 	ee
     }
 
-    pub fn has_cylinder(&self) -> bool {
-	self.curr_cylinder < self.cylinders.len()
-    }
-
-    pub fn add_selected_point(&mut self, ind: usize) {
-	let cylinder = &mut self.cylinders[self.curr_cylinder];
+    pub fn add_selected_point(&mut self,
+			      session: &mut program::Session,
+			      ind: usize) {
+	let cylinder = &mut session.cylinders[self.curr_cylinder];
 	cylinder.
 	    spline.point_colors[ind] = glm::vec4(1.0, 0.0, 0.0, 1.0);
         self.selected_indices.push(ind);
     }
 
-    pub fn clear_selected(&mut self) {
+    pub fn clear_selected(&mut self,
+			  // session: &mut program::Session
+			  cylinders: &mut Vec<cylinder::GeneralizedCylinder>) {
 	
-	let cylinder = &mut self.cylinders[self.curr_cylinder];
+	let cylinder = &mut cylinders[self.curr_cylinder];
 	for i in &self.selected_indices {
 	    cylinder.spline.point_colors[*i] = glm::vec4(0.0, 0.0, 0.0, 1.0);
 	}
@@ -100,8 +99,9 @@ pub fn select_point(mouse_pos : glm::Vec2, points : &Vec<glm::Vec3>,
 }
 
 pub fn handle_edit_no_peeling(proj : &glm::Mat4, input_state: &program::InputState,
-			      edit_state : &mut EditState) {
-    let cylinder = &mut edit_state.cylinders[edit_state.curr_cylinder];
+			      edit_state : &mut EditState,
+			      session : &mut program::Session) {
+    let cylinder = &mut session.cylinders[edit_state.curr_cylinder];
     match edit_state.state {
         EditEnum::Selecting => {
             if input_state.mouse_state.button1_pressed {
@@ -121,7 +121,7 @@ pub fn handle_edit_no_peeling(proj : &glm::Mat4, input_state: &program::InputSta
 
                 
                 if !already_chosen && selected_point_ind >= 0 {
-		    edit_state.add_selected_point(selected_point_ind as usize);
+		    edit_state.add_selected_point(session, selected_point_ind as usize);
                 }
             }
             
@@ -150,7 +150,7 @@ pub fn handle_edit_no_peeling(proj : &glm::Mat4, input_state: &program::InputSta
                     }
                     
                     if selected_point_ind < 0 || !already_chosen {
-			edit_state.clear_selected();
+			edit_state.clear_selected(&mut session.cylinders);
                         edit_state.state = EditEnum::Selecting;
                     } else {
                         edit_state.ref_point = normalize_point(input_state.mouse_state.pos);
@@ -192,10 +192,11 @@ pub fn handle_edit_no_peeling(proj : &glm::Mat4, input_state: &program::InputSta
 }
 
 pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputState,
-				edit_state : &mut EditState) {
+				edit_state : &mut EditState,
+				session: &mut program::Session) {
     // let cylinder = &mut edit_state.cylinder.as_mut().unwrap();
     
-    let cylinder = &mut edit_state.cylinders[edit_state.curr_cylinder];
+    let cylinder = &mut session.cylinders[edit_state.curr_cylinder];
     match edit_state.state {
 	EditEnum::Selecting => {
 	    if input_state.mouse_state.button1_pressed {
@@ -210,7 +211,7 @@ pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputS
 		    edit_state.ref_point = normalize_point(input_state.mouse_state.pos);
 
 		    // Convention: First selected index is always the dragged index
-		    edit_state.add_selected_point(selected_point_ind as usize);
+		    edit_state.add_selected_point(session, selected_point_ind as usize);
 		    edit_state.state = EditEnum::Dragging;
 		}
 	    }
@@ -218,7 +219,7 @@ pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputS
 	EditEnum::Dragging => {
 	    if !input_state.mouse_state.button1_pressed {
 		edit_state.state = EditEnum::Selecting;
-		edit_state.clear_selected();
+		edit_state.clear_selected(&mut session.cylinders);
 	    } else {
 		let new_point = normalize_point(input_state.mouse_state.pos);
 
@@ -233,23 +234,23 @@ pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputS
 		cylinder.spline.control_points[s1 as usize] =
 		    glm::vec3(new_point.x, -new_point.y, 0.0);
 
-		edit_state.clear_selected();
+		edit_state.clear_selected(&mut session.cylinders);
 		
 		// Preserve dragged point as first in selected-point-list
-		edit_state.add_selected_point(s1);
+		edit_state.add_selected_point(session, s1);
 		
 		for i in 0..len {
 		    if (i as i32 - s1 as i32).abs() > area_of_effect {
 			fixed_points.push(i as usize);
 		    } else if i != s1 {
-			edit_state.add_selected_point(i as usize);
+			edit_state.add_selected_point(session, i as usize);
 		    }
 		}
 
 		fixed_points.push(s1 as usize);
 
 		// Must redeclare to release mutable borrow for above section
-		let cylinder = &mut edit_state.cylinders[edit_state.curr_cylinder];
+		let cylinder = &mut session.cylinders[edit_state.curr_cylinder];
 		
 		edit_state.laplacian_system.setup_fixed_points(fixed_points);
 
@@ -260,19 +261,22 @@ pub fn handle_edit_with_peeling(proj : &glm::Mat4, input_state: &program::InputS
 }
 
 pub fn handle_edit_operation(proj : &glm::Mat4, input_state: &program::InputState,
-			     mut edit_state : &mut EditState) {
+			     mut edit_state : &mut EditState,
+			     session: &mut program::Session) {
 
     if input_state.gui_state.using_peeling {
 	handle_edit_with_peeling(&proj, &input_state,
-				 &mut edit_state);
+				 &mut edit_state,
+				 session);
     } else {
 	handle_edit_no_peeling(&proj, &input_state,
-			       &mut edit_state);
+			       &mut edit_state,
+			       session);
     }
 
     
-    let cylinder = &mut edit_state.cylinders[edit_state.curr_cylinder];
-    cylinder.update_mesh();
+    let cylinder = &mut session.cylinders[edit_state.curr_cylinder];
+    cylinder.update_mesh(&session.annotations[edit_state.curr_cylinder]);
 
     cylinder.spline.update_gpu_state();
 

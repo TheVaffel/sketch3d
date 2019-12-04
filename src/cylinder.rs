@@ -3,6 +3,7 @@ use crate::splinedraw;
 use crate::objects;
 use crate::lineobjects;
 use crate::shaders;
+use crate::annotation;
 
 use std::ffi::{CString};
 use crate::Object;
@@ -18,8 +19,10 @@ pub struct GeneralizedCylinder {
 }
 
 impl GeneralizedCylinder {
-    pub fn update_mesh(self : &mut GeneralizedCylinder) {
-        let (vertices, indices) = get_cylinder_values(self.radius, self.circ_resolution, &self.spline);
+    pub fn update_mesh(self : &mut GeneralizedCylinder,
+		       annotations: &Vec<Box<dyn annotation::Annotation>>) {
+        let (vertices, indices) = get_cylinder_values(self.radius, self.circ_resolution, &self.spline,
+						      Some(annotations));
 
         self.object.vertices = vertices;
         self.object.indices = indices;
@@ -30,9 +33,9 @@ impl GeneralizedCylinder {
 }
 
 pub fn draw_cylinder(generalized_cylinder : &GeneralizedCylinder,
-		      body_program : &shaders::ShaderProgram,
-		      line_program : &shaders::ShaderProgram,
-		      transform : &glm::Mat4) {
+		     body_program : &shaders::ShaderProgram,
+		     line_program : &shaders::ShaderProgram,
+		     transform : &glm::Mat4) {
     let black_color = glm::vec4(0.0, 0.0, 0.0, 1.0);
     let white_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
 
@@ -127,9 +130,29 @@ pub fn draw_cylinder(generalized_cylinder : &GeneralizedCylinder,
 }
 
 pub fn get_cylinder_values(radius : f32,
-                            circ_resolution: usize,
-                            spline_state : &splinedraw::SplineState)
-                            -> (Vec<f32>, Vec<u32>) {
+                           circ_resolution: usize,
+                           spline_state : &splinedraw::SplineState,
+			   annotations: Option<&Vec<Box<dyn annotation::Annotation>>>)
+                           -> (Vec<f32>, Vec<u32>) {
+
+    let avv : Vec<(usize, f32)> = Vec::new();
+    
+    match annotations {
+	None => {
+	    avv.push((0, 1.0));
+	    avv.push((spline_state.control_points.len(), 1.0));
+	    
+	},
+	Some(&vec) => {
+	    for i in vec {
+		if i.get().alters_size() {
+		    avv.push((i.get().get_render_index(),i.get().get_size()));
+		}
+	    }
+
+	    avv.sort();
+	}
+    };
     
     let len_resolution = spline_state.spline_points.len() - 1;
     let icirc_resolution = circ_resolution as u32;
@@ -147,6 +170,7 @@ pub fn get_cylinder_values(radius : f32,
 
     let mut indices = vec![0; 3 * num_total_triangles];
 
+    
     // Create base
     for i in 0..len_resolution {
 	let ii = i as u32;
@@ -226,8 +250,23 @@ pub fn get_cylinder_values(radius : f32,
 
     // Create base
     let base_length = 1.0; // length - 2.0 * radius;
+
+    let mut curr_ann = 0;
     
     for i in 0..(len_resolution + 1) {
+	while i > avv[curr_ann].0 {
+	    curr_ann += 1;
+	}
+
+	// Re-assign radius with scale
+	let radius = radius * if i == avv[curr_ann].0 {
+	    avv[curr_ann].1
+	} else {
+	    (avv[curr_ann - 1].1 * (i - avv[curr_ann - 1].0) as f32 +
+	     avv[curr_ann].1 * (avv[curr_ann].0 - i) as f32) /
+		(avv[curr_ann].0 - avv[curr_ann - 1].0) as f32
+	};
+	
 	let ai = if i == len_resolution { i - 1 } else { i };
 	let z_dir = glm::builtin::normalize(glm::vec3(spline_state.spline_points[ai + 1].x,
 						      spline_state.spline_points[ai + 1].y,
@@ -258,6 +297,11 @@ pub fn get_cylinder_values(radius : f32,
     // Create hemispheres
     for k in 0..2 {
 	let factor = if k == 0 {-1.0} else {1.0};
+
+	let scale = if k == 0 { avv[0].1 } else { avv[avv.len() - 1].1 };
+	
+	// Redefine radius here
+	let radius = radius * scale;
 
 	let vert_base = 3 * (num_base_vertices + k * num_end_vertices);
 
@@ -309,7 +353,8 @@ pub fn create_cylinder(radius : f32,
     
     splinedraw::spline_screen_to_world_transform(&mut spline_state);
     
-    let (vertices, indices) = get_cylinder_values(radius, circ_resolution, &spline_state);
+    let (vertices, indices) = get_cylinder_values(radius, circ_resolution, &spline_state,
+						  None);
 
     GeneralizedCylinder {
 	line_object: lineobjects::create_line_object(&vertices, &indices),

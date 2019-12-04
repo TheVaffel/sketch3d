@@ -9,6 +9,7 @@ use std::ffi::{CString};
 use std::f32;
 use num_traits::identities::One;
 use std::mem;
+use std::cell::Cell;
 
 use crate::settings;
 use crate::shaders;
@@ -38,6 +39,11 @@ pub enum ProgramState {
     Draw,
     Edit(edit::EditState),
     Annotate(annotation::AnnotationState),
+}
+
+pub struct Session {
+    pub cylinders: Vec<cylinder::GeneralizedCylinder>,
+    pub annotations: Vec<Vec<Box<dyn annotation::Annotation>>>, // One vector per cylinder
 }
 
 pub static PS_DRAW_NUM : usize = 0;
@@ -87,20 +93,19 @@ pub fn setup_objects() -> ModelerState {
 }
 
 
-pub fn handle_gui_update(program_state: &mut ProgramState,
+pub fn handle_gui_update(session: &mut Session,
+			 program_state: &mut ProgramState,
 			 mut glfw_state: &mut crate::GLFWState,
 			 mut gui_state: &mut gui::GUIState) {
     let old_gui_state = gui_state.clone();
     let old_program_num = program_state.to_num();
-    gui::run_gui(program_state, &mut glfw_state, &mut gui_state);
+    gui::run_gui(session, program_state, &mut glfw_state, &mut gui_state);
 
-    
     match program_state {
 	ProgramState::Edit(ref mut edit_state) => {
-	    if edit_state.has_cylinder() &&
-		(gui_state.using_peeling != old_gui_state.using_peeling ||
-		 PS_EDIT_NUM != old_program_num) {
-		    edit_state.clear_selected();
+	    if gui_state.using_peeling != old_gui_state.using_peeling ||
+		PS_EDIT_NUM != old_program_num {
+		    edit_state.clear_selected(&mut session.cylinders);
 		}
 	},
 	_ => {}
@@ -109,7 +114,8 @@ pub fn handle_gui_update(program_state: &mut ProgramState,
 
 
 fn handle_draw_operation(mut spline_state : &mut splinedraw::SplineState,
-			 input_state: &InputState) -> Option<cylinder::GeneralizedCylinder> {
+			 input_state: &InputState,
+			 session: &Session) -> Option<cylinder::GeneralizedCylinder> {
     if input_state.key_state.enter {
 	if spline_state.control_points.len() >= 2 {
 	    let mut tmp_spline = splinedraw::SplineState::new();
@@ -184,6 +190,8 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 
     let mut program_state = ProgramState::Draw;
 
+    let mut session = Session { cylinders: Vec::new(),
+				annotations: Vec::new(), };
         
     // Loop until the user closes the window
     while !glfw_state.window.should_close() {
@@ -214,28 +222,33 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 	shader_program.activate();
 	match program_state {
 	    ProgramState::Edit(ref edit_state) => {
+		cylinder::draw_cylinder(&session.cylinders[edit_state.curr_cylinder],
+					&shader_program,
+					&world_line_program,
+					&trans);
 		
-		if edit_state.has_cylinder() {
-		    let model_trans = glm::ext::translate(&glm::Matrix4::one(),
-							  glm::vec3(0.0, 0.0,
-								    -1.0 
-								    + 1.0) * 2.5);
-		    
-		    let trans = trans * model_trans; 
+	    },
+	    ProgramState::Annotate(ref annotation_state) => {
 
-		    
-		    cylinder::draw_cylinder(&edit_state.cylinders[edit_state.curr_cylinder],
-					      &shader_program,
-					      &world_line_program,
-					      &trans);
+		for c in &session.cylinders {
+		    cylinder::draw_cylinder(&c,
+					    &shader_program,
+					    &world_line_program,
+					    &trans);
 		}
+		
+		annotation::draw_annotations(&session,
+					     &annotation_state,
+					     &world_line_program,
+					     &trans);
 	    },
 	    _ => {}
 	}
 
 	// Handle GUI
 
-	handle_gui_update(&mut program_state,
+	handle_gui_update(&mut session,
+			  &mut program_state,
 			  &mut glfw_state,
 			  &mut input_state.gui_state);
 	
@@ -291,11 +304,16 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 	match program_state  {
 	    ProgramState::Draw => {
 		let o_cylinder = handle_draw_operation(&mut spline_state,
-							&input_state);
+						       &input_state,
+						       &session);
 		match o_cylinder {
 		    Some(cylinder) => {
 			let mut edit = edit::EditState::new();
-			edit.cylinders.push(cylinder);
+			
+			annotation::push_default_annotations(session.cylinders.len(),
+							     cylinder.spline.control_points.len(),
+							     &mut session.annotations);
+			session.cylinders.push(cylinder);
 			edit.curr_cylinder = 0;
 			program_state = ProgramState::Edit(edit);
 
@@ -309,16 +327,16 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 	    },
 	    ProgramState::Edit(ref mut edit_state) => {
 		edit::handle_edit_operation(&proj,
-					    &input_state, edit_state);
+					    &input_state,
+					    edit_state,
+					    &mut session);
 	    },
 	    ProgramState::Annotate(ref mut annotation_state) => {
 		annotation::handle_annotation(&proj,
-					      &input_state, annotation_state);
+					      &input_state, annotation_state,
+					      &mut session);
 
 		// annotation::update_gpu_annotation_state(&annotation_state, 
-		
-		annotation::draw_annotations(&annotation_state,
-					     &world_line_program);
 	    },
 	}
 
