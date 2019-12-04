@@ -38,43 +38,131 @@ In this document, I will discuss my project ParaGem, a modeling tool for artists
 
 While ParaGem would be too simplistic for industrial use compared to commercial procedural content tools, like SideFX' Houdini \cite{houdini} and Esri's CityEngine \cite{cityengine}, it is rather aimed to be a useful tool for gaining an intuition of the behavior of procedural content, and as a way for artists to communicate their intentions of procedural content e.g. how size, asymmetry and complexity can vary and are related between components of the model.
 
-ParaGem is not finished, and I am therefore not able to report any user experience of the program, nor its practical utility. However, I will present an overview of ParaGem (section \ref{section_architecture}), its different components (section \ref{section_components}), and the technical details of the underlying algorithms (section \ref{section_algorithms}). At last, I will highlight what further work must be conducted to finish the application, and ideas for future directions of the project (section \ref{section_future_work}).
+ParaGem is not finished, and I am therefore not able to report any user experience of the program, nor its practical utility. However, I will present an overview of ParaGem (section \ref{section_architecture}), its different implemented components (section \ref{section_components}), and the technical details of the underlying algorithms (section \ref{section_algorithms}). At last, I will briefly discuss the implementation details of my project (section \ref{section_implementation}) before I highlight what further work must be conducted to finish the application, and ideas for future directions of the project (section \ref{section_future_work}).
 
 I will start off with a survey of related work.
 
+\pagebreak
+
 \section{Related Work}
 
-Although my work is within the field of procedural content generation, it has many aspects related to 3D-modeling, and in particular, sketch-based 3D-modeling.
+Although my work is within the field of procedural content generation, it has many aspects related to interactive 3D-modeling, and in particular, sketch-based 3D-modeling. I will discuss previous work within both of these fields.
 
 \subsection{Procedural Content}
 
 Procedural content generation (PCG) is by no means a new subject. PCG has been used in modeling diverse entities like plants \cite{plant_l_system}, buildings \cite{building_shape_grammar}, cities \cite{procedural_city_modeling}, and terrains \cite{early_terrain_generation} for a long time. 
 
-
 Many surveys exist, focusing on generation of different types of content. The recent survey by Galin et al. \cite{terrain_survey_2019} provides an extensive survey of terrain generation. Hendrikx et al. \cite{pcg_survey_2013} and Carli et al. \cite{brazilian_pcg_survey} both consider procedural content as used in games. Freiknecht et al. \cite{pcg_survey_2017} also consider games in their survey, but also includes PCG in domains outside computer graphics, like NPC interaction and quests. The adaption into industry is also well-documented (e.g. \cite{amato2017}).
 
-One popular way of realizing PCG is through the use of shape grammars \cite{stiny2006shape}. Shape grammars are probabilistic formal grammars where terminal symbols can correspond geometric meshes -- primitive shapes. Like normal grammars, shape grammars work by repeatedly replacing symbols with other symbols using production rules until only terminal symbols remain, and then produce geometry from the resulting string. Shape grammars have been successfully used for modeling buildings \cite{building_shape_grammar} and plants (with L-systems, that are closely related to shape grammars) \cite{plant_l_system}.
+One popular way of realizing PCG is through the use of shape grammars \cite{stiny2006shape}. Shape grammars are probabilistic formal grammars where terminal symbols can correspond geometric meshes -- primitive shapes. Like normal grammars, shape grammars work by repeatedly replacing symbols with other symbols using production rules until only terminal symbols remain, and then produce geometry from the resulting string. Shape grammars have been successfully used for modeling buildings \cite{building_shape_grammar} and plants \cite{plant_l_system} (with L-systems, that are closely related to shape grammars).
 
 
 %The power of procedural generation has been proven in the creation of plants (SOME CITATION), buildings (SOME OTHER CITATION) and even whole cities (THAT PARISH PAPER, YOU KNOW). There are various ways of seeding procedural generation, shape grammars being among the most popular ones.
 
-\subsection{Sketch-Based Modeling}
+\subsection{Sketch-Based Modeling} \label{subsection_review_sketch}
 
 3D-modeling is a task that requires significant effort and specialized experience to perform successfully and efficiently, making it a bottleneck when communicating three-dimensional models by e.g. artists. Sketch-based modeling is one attempt at overcoming this challenge. 
 
+\cite{gingold09} is an example of such an approach, where the user creates 3D models out of pre-defined primitive. Their most important primitive is the generalized cylinder, a shape of circular cross-section that is extruded along a spline in three dimensions. The user inputs strokes to define the spline, from which the application creates the generalized cylinder.
 
+At extension of Gingold et al.'s approach was presented by Kazmi et al. \cite{hybrid_character_modeling}, where heightmaps are created from textures, which can be turned into fine-grained detail 
 
-The goal of this project has been to unite the power of procedural content generation with the simplicity of sketch-based modeling. The goal is to create a new, simple way of communicating geometric entities that also encapsulates information about natural variation.
+Other approaches to sketch-based modeling include that of Huang et al. \cite{procedural_sketch_cnn}, in which the authors use two convolutional neural networks (CNN) to create a threedimensional model from a hand-drawn sketch, provided it belongs to one of a few pre-determined object classes. One of the CNNs deduces which of the classes the sketch represents, while the other determines various parameters of the object so that the final model resembles the sketch as much as possible.
+
+A few other related methods, although they use RGB photographs instead of sketches, are Pixel2Mesh \cite{pixel2mesh} by Wang et al. and procedural modeling of a building from an image \cite{procedural_building_from_image} by Nishida et al. Pixel2Mesh takes as input a photograph of a 3D object and returns a 3D mesh of the same object. It uses a graph-based convolutional neural network to deform a sphere (whose mesh is represented by a graph) into the desired object.
+
+Nishida et al.'s approach also takes an RGB image as input, as well as a user-specified outline of the building in the image. Subsequently, the CNN classifies the building based on building mass style, and then other CNNs to determine style of ledges, roof and windows together with various parameters for all of these components. The result is a shape grammar that can be used for generating similar buildings.
+
+\subsection{Combining Procedural Generation and Sketch-based Modeling}
+
+As may be apparent from section \ref{subsection_review_sketch}, work with sketch-based modeling often make use of procedural models to reduce the number of possible interpretations of an input sketch. Nshida et al. \cite{sketch_based_urban_modeling} explicitly creates procedural models; models whose exact geometry depends on a set of variables. While their work restricts itself to modeling buildings, the recent work of Wailly et al. \cite{sketching_parameterized_models} generalizes it to arbitrary models, allowing the user to draw a variety of geometric primitives.
+
+At last, the work by Schmidt and Singh \cite{schmidt08} on modeling using surface trees should be mentioned in this context. They represent alterations of a surface as a tree of different edits, allowing for consistent behavior when changing and copying large ``base'' edits. Although not an explicit goal of their method, the resulting geometry is a procedural model, which could potentially be used for procedural content generation.
+
+\pagebreak
 
 \section{Overview} \label{section_architecture}
 
-\section{Components} \label{section_components}
+The goal of ParaGem has been to unite the power of procedural content generation with the simplicity of sketch-based modeling. The intention is to create a new, simple way of communicating geometric entities that also encapsulates information about natural variation. My approach is heavily inspired by that of Gingold et al. \cite{gingold09}, and my aim has been to extend their approach by allowing the user to create procedural models.
+
+In this section, I will describe how ParaGem is intended to work and how it is used. I will not distinguish between what has been implemented and not, this will be expanded upon in section \ref{section_components}.
+
+\subsection{Features}
+
+A model in ParaGem consists of several \textit{submodels}, a set of variables, and a set of annotations, each of these concepts will be explained in the following.
+
+\subsubsection{Submodels}
+
+The user is allowed to make multiple submodels that constitute one model. Submodels work in much the same way as classes do in object-oriented programming. The user defines each submodel once, but can create multiple instances of each, potentially with different parameters. In this sense, the pre-defined geometric primitives of ParaGem are also submodels.
+The model as a whole is represented by a tree structure whose nodes are instances of submodels. Each submodel is defined with a number of parameters, which will be propagated from parent nodes in the tree (or at the base node, defined by the user). The child nodes of each submodel instance is defined on submodule-(class-)level, but may depend on instance parameters. Submodels can be arranged in rows and grids on other submodels, and even allows for recursion.
+
+\subsubsection{Variables}
+
+Variables are scalar values that works as input parameters to submodels. They can also be defined as constants global to the whole model tree. There are a number of pre-defined functions that can work on one or multiple variables, like offsets, scaling, exponentials etc.
+
+What makes variables a useful concept for procedural generation, is that they can be defined as ranges of possible values instead of single scalars. This is the way variation is introduced to the model.
+
+Variables manifest themselves when used as input to annotations. 
+
+
+\subsubsection{Annotations}
+
+Annotations are descriptors  which can describe attributes like the size, position, curvature and shape of a part of a primitive. Annotations are what ties varibles to geometric attributes. Each annotation describes one attribute of one part of the model.
+
+More interestingly, annotations can describe the relations between different components or parts of components of the full model, by having multiple annotations make use of the same variable. In this respect, the annotations are very similar to those presented by Gingold et al. in \cite{gingold09}. For example, this could let us create human models enforcing symmetry in limb sizes, or insects whose wings are required to be longer than their body length.
+
+Another important aspect of the annotation system is the possibility to define recursive models. This enables the user to create complex models with repeated structures, such as trees. For this kind of annotation, the supplied variables determine attributes like scale, position, and recursion limit, as well as any custom scalar varables the user may want to propagate into the child model.
+
+% EXAMPLES PLZZZ
+
+\subsection{Workflow}
+
+Like several of the aspects mentioned above, the workflow described in the following is not supported by the current implementation. This subsection serves as a vision for how the user will use the program.
+
+At first, the user must make a new submodel.
+In order to create a submodel, the user first chooses a primitive, and then makes a stroke on the screen to place and create the initial shape of the primitive in the scene. Then, the primitive can be edited by the user. The editing options and controls differ between each geometric primitive. In the case of the generalized cylinder, there are two primary methods for editing the shape; Laplacian curve editing and peeling, both of which will be explained in section \ref{section_components}.
+
+The user can add multiple geometric primitives in the same submodel. Their poses in relation to each others will be fixed, unless otherwise specified by annotations.
+
+% Create annotations
+
+When creating a submodel, the user can at any time switch into annotation mode. Here, the user can choose between a range of annotation types; size, position, rotation and inclusion of other submodels. The user chooses an annotation type from a list, and then clicks the position at which the annotation is to be applied. Different types of annotations are applied to different features of the model -- size annotations are applied to a part of a geometric primitive, while inclusion of other submodels can be applied on the surface of the model. When an annotation is added, it will have default values for the attribute it influences. The user can change this value, or set it equal to some variable.
+
+While in annotation mode, the user also has the opportunity to create variables. Each variable is either defined as an input parameter to the submodel, a static scalar value, or a range of values. One can also define a value as a function of one or more other values. For visualizing the model in the editor, input variables attain a default value, while value ranges attain the average of the range. Both can be changed to arbitrary values by the user.
+
+Subsequently, the user can create several other submodels in a similar fashion, and is always allowed to go back and edit a previous one. The first submodel will initially be the ``base'' of the model; the root of the model tree. The user can change which submodel is the base model at will.
+
+% Output to file
+
+Finally, the user can visualize variations of the model through the gallery mode. The application creates a user-chosen number of models from the model tree created by the user, where each of the range variables are given a concrete value within its range, chosen uniformly at random. The user can scroll through the gallery and save interesting models in a common format (like \texttt{.obj}). The user can also save the model tree for future use and edits.
+
+\pagebreak
+
+\section{Implemented Components} \label{section_components}
+
+\subsection{Drawing a Generalized Cylinder}
+
+Like in Gingold et al., the most important primitive for modeling in ParaGem is the generalized cylinder. 
+
+The user defines a generalized cylinder by drawing a curve on the screen, which is discretized into points, which again serve as control points for a spline. 
+This spline is the ``central spine'' of the generalized cylinder. The cylinder is created by placing circles on interpolated points on the spline perpendicular to the direction of the spline, so that the spline is perceived to go through the circles. Then a mesh is ``wrapped'' around these circles to form the mesh surrounding the spline. The end pieces are simply hemispheres.
+
+
+
+Naturally, ParaGem should support more geometric primitives, but only the generalized cylinder is implemented. It has had priority due to its flexibility and intuitive behavior, as proven in \cite{gingold09}.
+
+\subsection{Shaping the cylinder}
+
+\subsection{Creating Annotations}
+
+
+\pagebreak
 
 \section{Algorithms} \label{section_algorithms}
 
 \subsection{Laplacian Curve Editing}
 
-The following describes how we compute a new spline curve after one of the points has moved. Similarily to the one used by Gingold et al. \cite{gingold09}, this algorithm is based on \textit{Laplacian Surface Editing} by Sorkine et al. \cite{sorkine04}. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice.
+The following describes how we compute a new spline curve after one of the points has moved. Similarily to the one used by Gingold et al. \cite{gingold09}, this algorithm is based on \textit{Laplacian Surface Editing} by Sorkine et al. \cite{sorkine04}. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice. Also, unlike Sorkine et al., I will restrict myself to two dimensions, as we are only editing a curve in the plane.
 
 Let the $V$ denote the initial positions of the control points before movement, consisting of the individual nodes positions $\mathbf{v}_i \in V$. Next, let $U \subset \mathbb{Z}$ be a set of indices refering to points we want to keep fixed, and let $\mathbf{u}_i$ be the fixed positions of $\mathbf{v}_i \in V$ for each $ i \in U$. Given the fixed positions $\mathbf{u}_i$ and the initial positions $V$, we want to compute the new positions $V'$, consisting of the individual positions $\mathbf{v}'_i \in V'$, that preserve the local structure of the curve, while also conforming to the new fixed positions.
 
@@ -214,23 +302,49 @@ so that, in the end, we find the new curve vertices $V'$.
 
 \subsection{Modifications}
 
-Although the Laplacian Curve Editing approach provides a satisfying approach to edit a curve, the fixed points were found to move an unacceptable amount due to having a least-squares constraint and not being completely fixed. We probably encounter this problem because, unlike Sorkine et al., we have a limited number of vertices in the spline (usually less than 100), which make them more apt to move larger distances than if we had, say, tens of thousands of vertices, like in the meshes used by Sorkine et al.
+Although the Laplacian Curve Editing approach provides an intuitive approach to editing the curve, the fixed points were found to move an unacceptable amount due to having a least-squares constraint and not being completely fixed. We probably encounter this problem because, unlike Sorkine et al., we have a limited number of vertices in the spline (usually less than 100), which make them more apt to move larger distances than if we had, say, tens of thousands of vertices, like in the meshes used by Sorkine et al.
 
 This is fixed with a larger weight on the fixed-point terms of the optimization objective, practically conducted by multiplying both the non-zero elements of the $2|U|$ bottom rows of $B$ and the last $2|U|$ elements of $\mathbf{c}$ by the same constant factor.
+
+% Add comment about peeling
+
+
+\pagebreak
+
+\section{Implementation Details} \label{section_implementation}
+
+
+\pagebreak
 
 \section{Future Work} \label{section_future_work}
 
 % I go through both what is needed to finish this project, and 
 
-\subsection{Work Remaining for Project Finish}
+\subsection{Planned Application Features}
+
+% Submodels
+% Row-/grid-arrangement of submodels
+% Parameters-per-submodel
+% Functions over parameters for row-grid-arrangements of submodels
+
+% More primitives (cuboids, tetrahedra, ellipsoids, sheets (?))
+
+% Inter-annotation restrictions
+
+% 3D edit
 
 \subsection{Future Directions}
 
-% Mention textures (noise-driven?), 
+% Discuss issues regarding usability (starting to be rather complex)
+
+% Mention textures (noise-driven?), both as fine-grained detail and color textures.
 
 % Include \cite{schmidt08} - work that is a bit more related to what I have in mind (but perhaps not as ambitious, with recursion and stuff).
-  
-\section{Conclusions}
+% This could also be used to create terrains (submodels are not just additive, but can be subtractive or just surface modifications instead)
+
+
+
+\section{Conclusions} \label{section_conclusion}
 
 % Project not finished, but we have shown examples of it working (make sure to actually show examples of it working)
 
