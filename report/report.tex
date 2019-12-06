@@ -38,7 +38,7 @@ In this document, I will discuss my project ParaGem, a modeling tool for artists
 
 While ParaGem would be too simplistic for industrial use compared to commercial procedural content tools, like SideFX' Houdini \cite{houdini} and Esri's CityEngine \cite{cityengine}, it is rather aimed to be a useful tool for gaining an intuition of the behavior of procedural content, and as a way for artists to communicate their intentions of procedural content e.g. how size, asymmetry and complexity can vary and are related between components of the model.
 
-ParaGem is not finished, and I am therefore not able to report any user experience of the program, nor its practical utility. However, I will present an overview of ParaGem (section \ref{section_architecture}), its different implemented components (section \ref{section_components}), and the technical details of the underlying algorithms (section \ref{section_algorithms}). At last, I will briefly discuss the implementation details of my project (section \ref{section_implementation}) before I highlight what further work must be conducted to finish the application, and ideas for future directions of the project (section \ref{section_future_work}).
+ParaGem is not finished, and I am therefore not able to report any user experience of the program, nor its practical utility. However, I will present an overview of ParaGem (section \ref{section_architecture}), its different implemented components (section \ref{section_components}), and the technical details of the underlying algorithms (section \ref{section_algorithms}). At last, I highlight what further work must be conducted to finish the application, and ideas for future directions of the project (section \ref{section_future_work}).
 
 I will start off with a survey of related work.
 
@@ -56,13 +56,15 @@ Many surveys exist, focusing on generation of different types of content. The re
 
 One popular way of realizing PCG is through the use of shape grammars \cite{stiny2006shape}. Shape grammars are probabilistic formal grammars where terminal symbols can correspond geometric meshes -- primitive shapes. Like normal grammars, shape grammars work by repeatedly replacing symbols with other symbols using production rules until only terminal symbols remain, and then produce geometry from the resulting string. Shape grammars have been successfully used for modeling buildings \cite{building_shape_grammar} and plants \cite{plant_l_system} (with L-systems, that are closely related to shape grammars).
 
+% Mention Perlin noise for textures and terrains and whatnot?
+
 \subsection{Sketch-Based Modeling} \label{subsection_review_sketch}
 
 3D-modeling is a task that requires significant effort and specialized experience to perform successfully and efficiently, making it a bottleneck when communicating three-dimensional models by e.g. artists. Sketch-based modeling is one attempt at overcoming this challenge. 
 
-\cite{gingold09} is an example of such an approach, where the user creates 3D models out of pre-defined primitive. Their most important primitive is the generalized cylinder, a shape of circular cross-section that is extruded along a spline in three dimensions. The user inputs strokes to define the spline, from which the application creates the generalized cylinder.
+In \cite{gingold09}, Gingold et al. give an example of such an approach, where the user creates 3D models out of pre-defined primitive. Their most important primitive is the generalized cylinder, a shape of circular cross-section that is extruded along a spline in three dimensions. The user inputs strokes to define the spline, from which the application creates the generalized cylinder.
 
-% MENTION THE KINDA IMPORTANT ANNOTATION SYSTEM
+The main focus of Gingold et al.'s paper is the introduction of \textit{structured annotations}. Structured annotations are restrictions the artist can put on the model so as to ensure symmetry, consistent sizes and angles etc. By conducting user tests, they confirm that the introuction of structured annotations enable novice's to more easily create aesthetically pleasing, simple models in a short time. I have made use of concept of structured annotations in ParaGem, extending them to handle variables instead of constants.
 
 At extension of Gingold et al.'s approach was presented by Kazmi et al. \cite{hybrid_character_modeling}, where heightmaps are created from textures, which can be turned into fine-grained detail 
 
@@ -116,7 +118,7 @@ Another important aspect of the annotation system is the possibility to define r
 
 \subsection{Workflow}
 
-Like several of the aspects mentioned above, the workflow described in the following is not supported by the current implementation. This subsection serves as a vision for how the user will use the program.
+Like several of the concepts mentioned above, the workflow described in the following is not supported by the current implementation. This subsection serves as a vision for how the user will use the program.
 
 At first, the user must make a new submodel.
 In order to create a submodel, the user first chooses a primitive, and then makes a stroke on the screen to place and create the initial shape of the primitive in the scene. Then, the primitive can be edited by the user. The editing options and controls differ between each geometric primitive. In the case of the generalized cylinder, there are two primary methods for editing the shape; Laplacian curve editing and peeling, both of which will be explained in section \ref{section_components}.
@@ -143,25 +145,108 @@ Finally, the user can visualize variations of the model through the gallery mode
 
 Like in Gingold et al., the most important primitive for modeling in ParaGem is the generalized cylinder. 
 
-The user defines a generalized cylinder by drawing a curve on the screen, which is discretized into points, which again serve as control points for a spline. 
+The user defines a generalized cylinder by drawing a curve on the screen, which is discretized into points, which again serve as control points for a spline. Between each control point, a fixed number of \textit{spline points} are inserted by B-spline interpolation. A review of the B-spline computation is given in section \ref{section_b_spline}. The spline is visualized by drawing straight line segments between the interpolated points.
+
 This spline is the ``central spine'' of the generalized cylinder. The cylinder is created by placing circles on interpolated points on the spline perpendicular to the direction of the spline, so that the spline is perceived to go through the circles. Then a mesh is ``wrapped'' around these circles to form the mesh surrounding the spline. The end pieces are simply hemispheres.
 
-
-
-Naturally, ParaGem should support more geometric primitives, but only the generalized cylinder is implemented. It has had priority due to its flexibility and intuitive behavior, as proven in \cite{gingold09}.
+Naturally, ParaGem should support more geometric primitives, but only the generalized cylinder is implemented. It has had priority due to its flexibility and intuitive behavior, as confirmed in \cite{gingold09}.
 
 \subsection{Shaping the cylinder}
 
+% Talk about Laplacian Curve Editing and peeling. Exact interface
+
+After creating the initial cylinder, its spline can be altered to change its shape. Two methods of spline manipulations are currently implemented: Laplacian curve editing and peeling.
+
+The algorithm of Laplacian curve editing is described in detail in section \ref{section_laplacian}, and I will thus only describe the user interface here. First, the user chooses a set of points they want to manipulate (the \textit{Region of Interest}), and subsequently drags one of the points in this region to shape the curve. The Laplacian curve editing algorithm ensures that the remaining points behave in a way that preserves the shape of the curve.
+
+Peeling was first described in \cite{rigid_igarashi}. It is a way of editing that is closely related to normal Laplacian curve editing. The main difference is that the Region of Interest is dynamic when using peeling. The user starts dragging any point on the curve, and as the point's distance from its original position grows, the Region of Interest grows as well.
+
+One subjective observation from testing out both of these methods, is that Laplacian editing generally provides more predictable behavior, while peeling is more convenient for making small changes to the spline shape.
+
 \subsection{Creating Annotations}
 
+% Should probably implement this before saying I implemented it
 
 \pagebreak
 
 \section{Algorithms} \label{section_algorithms}
 
-\subsection{Laplacian Curve Editing}
+\subsection{B-Spline} \label{section_b_spline}
 
-The following describes how we compute a new spline curve after one of the points has moved. Similarily to the one used by Gingold et al. \cite{gingold09}, this algorithm is based on \textit{Laplacian Surface Editing} by Sorkine et al. \cite{sorkine04}. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice. Also, unlike Sorkine et al., I will restrict myself to two dimensions, as we are only editing a curve in the plane.
+% What is B-Spline, How do we compute
+
+In ParaGem, B-splines are used as the basis for generalized cylinders, implemented with de Boor's algorithm \cite{deboor}. The naive de Boor's algorithm takes as input an ordered set of $m$ \textit{control points} $P$, representing a B-spline curve, here regarded as a function $\mathcal{C} \, : \, [a, b] \subset \mathbb{R} \rightarrow \mathbb{R}^n$, where $n \in \mathbb{Z^+}$ is the dimensionality of the curve. The interval $[a, b]$ is the \textit{domain} of the curve. To each point, there is assigned a part of this domain, so that $[a, b]$ is divided into $[t_0, t_1]$, $[t_1, t_2]$ etc. In particular, this means that $t_0 = a$ and $t_m = b$.
+
+In addition, the algorithm takes a parameter $x \in [a, b]$. The output of De Boor's algorithm is a point $\mathbf{c} \in \mathbb{R}$ that corresponds to the input parameter $x$ on the curve $\mathcal{C}$. In other words, $\mathbf{c} = \mathcal{C}(x)$.
+
+The B-spline $\mathcal{C}$ is defined as a linear combination of the points in $P$, each coefficient being a function of the input parameter $x$. Symbolically, for each point $\mathbf{p_i} \in P$, we define a function $B_{i,d}(x)$ so that
+
+\[
+\mathcal{C}(x) = \sum_{i = 1}^mB_{i,d}(x)\mathbf{c}_i.
+\]
+
+Here, $d \in \mathbb{Z^+} + \{0\}$ is the degree of the curve, and $\mathcal{C}$ is said to be of degree $d$. We denote this explicitly, as each functions $B_{i,d}$ is defined by other functions $B_{j,d-1}$ for $j \in \{i, i + 1\}$ recursively.
+
+The base case for the recursion is
+
+\begin{equation}
+B_{i,0}(x) = \begin{cases}
+  1, &\text{ if } \, t_i \leq x < t_{i + 1} \\
+  0, &\text{ otherwise }
+\end{cases}
+\end{equation}
+
+The recursion rule is
+
+\begin{equation} \label{eq_spline_recursion}
+B_{i,d}(x) = \dfrac{x - t_i}{t_{i + d} - t_i}B_{i,d - 1}(x) + \dfrac{t_{i + d + 1} - x}{t_{i + d + 1} - t_{i + 1}}B_{i + 1,d - 1}(x).
+\end{equation}
+
+Computing the coefficients in this manner, and subsequently compute the resulting point $\mathbf{c}$, is called de Boor's Algorithm
+
+To provide some intuition to how a B-spline behaves, we can deduce from the above equations that the first-degree ($d = 1$) curve coefficients will have the form
+
+\[
+B_{i,1}(x) = \dfrac{x - t_i}{t_{i + 1} - t_i}B_{i,0}(x) + \dfrac{t_{i + 2} - x}{t_{i + 2} - t_{i + 1}}B_{i + 1,0}(x)
+\]
+
+which resolves to
+
+\[
+B_{i,1}(x) =
+\begin{cases}
+  \dfrac{x - t_i}{t_{i + 1} - t_i},            &\text{ if } \, t_i \leq x < t_{i + 1} \\
+  \dfrac{t_{i + 2} - x}{t_{i + 2} - t_{i + 1}}, &\text{ if } \, t_{i + 1} \leq x < t_{i + 2} \\
+  0, &\text{ otherwise }
+\end{cases}
+\]
+
+Inserting these expressions for $B_{i,d}$ in equation \ref{eq_spline_recursion}, we get a first-degree spline $\mathcal{C}_1$:
+
+\[
+\mathcal{C}_1(x) = B_{i,1}(x)\mathbf{c}_i + B_{i+1,1}(x)\mathbf{c}_{i + 1} = \dfrac{(t_{i + 2} - x)\mathbf{c}_i + (x - t_1)\mathbf{c}_{i + 1}}{t_{i + 2} - t_{i + 1}} \text{ for } x \in [t_{i + 1}, t_{i + 2}].
+\]
+
+We see that this is a piece-wise linear function that simply interpolates adjacent points in order. In general, $k$-th degree curves will be piece-wise polynomials of degree $k$.
+
+One important issue regarding B-splines is that it is not valid across all intervals $[t_i, t_{i + 1}]$, since the recursion in equation \ref{eq_spline_recursion} for $B_{i,d}(x)$ requires a coefficient $B_{i + 1, d - 1}(x)$. That means that the last $d$ 0-degree coefficients cannot have $d$-degree counterparts - so that the number of coefficients of degree $d$ is $m - d$.
+
+We require that the sum of $B_{i,d}(x)$ must be 1 for all $x$. The uniform computations of the coefficients suggest that some intervals, namely the intervals $[t_0, t_d]$ and $[t_{m-d},t_{m}]$, will have coefficient sums less than 1. This follows since there are less than $d + 1$ coefficients that are non-zero on these intervals, and they are all computed in just the same way as the coefficients in the middle of the curve. Thus, we are simply ``missing'' some weight to make the sum 1. Therefore, it is customary to leave $\mathcal{C}$ undefined on the $d$ first and $d$ last intervals of the curve domain.
+
+To support drawing a spline from a given start point to a given end point, I have therefore added the first and last points $d$ times on the beginning and end of $P$ respectively, as is customary in the literature to overcome this obstacle.
+
+\subsection{Modifications}
+
+% We don't use this directly, we utilize the fact that we are interpolating at specific points with fixed distances.
+While the above algorithm makes it easy to determine the position of a single point from a spline, it is a costly operation to perform for every single interpolated point.
+
+One observation is that we may benefit from, is that each point on the $d$-degree spline can only depend on a maximum of $d + 1$ spline coefficients. 
+
+% Explain How you pre-compute the coefficients you badass genius
+
+\subsection{Laplacian Curve Editing} \label{section_laplacian}
+
+In the following, we derive the algorithm used to compute a new spline curve after one of the points has moved, using Laplacian curve editing. Similarily to the one used by Gingold et al. \cite{gingold09}, this algorithm is based on \textit{Laplacian Surface Editing} by Sorkine et al. \cite{sorkine04}. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice. Also, unlike Sorkine et al., I will restrict myself to two dimensions, as we are only editing a curve in the plane.
 
 Let the $V$ denote the initial positions of the control points before movement, consisting of the individual nodes positions $\mathbf{v}_i \in V$. Next, let $U \subset \mathbb{Z}$ be a set of indices refering to points we want to keep fixed, and let $\mathbf{u}_i$ be the fixed positions of $\mathbf{v}_i \in V$ for each $ i \in U$. Given the fixed positions $\mathbf{u}_i$ and the initial positions $V$, we want to compute the new positions $V'$, consisting of the individual positions $\mathbf{v}'_i \in V'$, that preserve the local structure of the curve, while also conforming to the new fixed positions.
 
@@ -307,27 +392,51 @@ This is fixed by imposing a larger weight on the fixed-point terms of the optimi
 
 \subsubsection{Peeling}
 
-In addition to traditional Laplacian curve editing, I have also implemented \textit{peeling}, as presented in \cite{rigid_igarashi} and used in \cite{gingold09}. Peeling is closely related to Laplacian curve editing, but while the latter requires a pre-specified region of movable points (the Region of Interest), this region is dynamic in peeling. More specifically, the user starts by choosing a single point of the curve, and drags it in the desired direction. The region of interest grows along the curve in both directions as the user drags the point. The further away from the original position the point is dragged, the greater the region of interest becomes.
+In addition to traditional Laplacian curve editing, I have also implemented \textit{peeling}, as used in \cite{gingold09}. Peeling is closely related to Laplacian curve editing, but while the latter requires a pre-specified region of movable points (the Region of Interest), this region is dynamic in peeling. More specifically, the user starts by choosing a single point of the curve, and drags it in the desired direction. The region of interest grows along the curve in both directions as the user drags the point. The further away from the original position the point is dragged, the greater the region of interest becomes.
 
 Both peeling and traditional Laplacian curve editing are implemented and available for the user.
 
 \pagebreak
 
-\section{Implementation Details} \label{section_implementation}
+\subsection{Implementation Details}
 
 % Is there much to say here? Used Rust? Used OpenGL, ImGUI, nalgebra..
+
+ParaGem was implemented using the Rust language. Visualization was done using OpenGL and the user interface was made with \texttt{imgui-rs} \cite{imguirs}. This project also made use of \texttt{nalgebra} \cite{nalgebra}, a general-purpose linear algebra library, used for the implementation of the sparse linear algebra algorithm of Laplacian Editing.
+
 
 \pagebreak
 
 \section{Future Work} \label{section_future_work}
 
-% I go through both what is needed to finish this project, and 
+% I go through both what is needed to finish this project, and things that could be further directions
 
-\subsection{Planned Application Features}
+Naturally, there is a number of features that needs to be implemented to have a fully working 3D modeling program. Beyond that, there is also a large space of issues and further directions that could be interesting to adress. In the following I will first present the features originally planned for ParaGem, but time forbade me to finish. Subsequently, I will stake out possible future additions and extensions to this project.
+
+\subsection{Planned Features}
+
+\subsubsection{Submodels}
 
 % Submodels
 % Row-/grid-arrangement of submodels
 % Parameters-per-submodel
+
+For now, the concept of submodels is not implemented, so that every model only consists of one unorganized collection of geometric primitives. Submodels are essential for a number of other features:
+
+\textbf{Connection annotation}, letting the user attaching one submodel to another using annotations to specify various attributes, like connection points, angle and size of a connection.
+
+\textbf{Arrangements}, letting the user attach multiple of the same submodel on a surface area of another. Here, it would be interesting to add possibility for random scattering (with probability distribution) and organized arrangements of connection (like rows or grids of them). I expect such a feature to require a major implementation effort to succeed.
+
+\textbf{Recursion}, which would let the user create complex models with repeated structure, like trees, as discussed earlier.
+
+\subsubsection{Annotations}
+
+\subsubsection{Primitives}
+
+\subsubsection{3D Editing}
+
+% More annotations
+
 % Functions over parameters for row-grid-arrangements of submodels
 
 % More primitives (cuboids, tetrahedra, ellipsoids, sheets (?))
