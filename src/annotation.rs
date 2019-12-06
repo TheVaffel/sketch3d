@@ -5,6 +5,7 @@ use crate::program;
 use crate::edit;
 use crate::cylinder;
 use crate::shaders;
+use crate::utils;
 
 use std::ffi::CString;
 use std::collections::HashMap;
@@ -12,6 +13,10 @@ use std::collections::HashMap;
 pub trait Annotation {
     fn get_str(&self) -> std::string::String;
     fn get_color(&self) -> glm::Vec4;
+    fn set_world_position(&mut self, vv: glm::Vec3);
+    fn get_world_position(&self) -> glm::Vec3;
+
+    fn set_size(&mut self, size : f32);
     
     fn alters_size(&self) -> bool {
 	false
@@ -32,12 +37,14 @@ pub trait Annotation {
 
     
     fn apply_size(&self, _sizes: &mut Vec<f32>) { }
+
 }
 
 
 pub struct SizeAnnotation {
     pub size: f32,
     pub index: usize,
+    pub position: glm::Vec3,
 }
 
 
@@ -58,14 +65,31 @@ impl Annotation for SizeAnnotation {
 	sizes[self.index] = self.size;
     }
 
+    fn get_size(&self) -> f32 {
+	self.size
+    }
+
+    fn set_size(&mut self, size: f32) {
+	self.size = size;
+    }
+
     fn get_render_index(&self) -> usize {
 	self.index
+    }
+
+    fn set_world_position(&mut self, vv: glm::Vec3) {
+	self.position = vv
+    }
+
+    fn get_world_position(&self) -> glm::Vec3 {
+	self.position
     }
 }
 
 pub struct AnnotationState {
-    curr_cylinder_index: usize,
-    curr_annotation_index: usize,
+    curr_cylinder_index: i32,
+    curr_annotation_index: i32,
+    
     
     points_vbo: gl::types::GLuint,
     colors_vbo: gl::types::GLuint,
@@ -84,7 +108,7 @@ impl Drop for AnnotationState {
 
 impl AnnotationState {
     pub fn new(edit_state : edit::EditState,
-	       session: &program::Session) -> AnnotationState {
+	       session: &mut program::Session) -> AnnotationState {
 
 	let mut points_vbo: gl::types::GLuint = 0;
 	let mut colors_vbo: gl::types::GLuint = 0;
@@ -114,8 +138,8 @@ impl AnnotationState {
 	}
 	
 	let ass = AnnotationState {
-	    curr_cylinder_index: 0,
-	    curr_annotation_index: 0,
+	    curr_cylinder_index: -1,
+	    curr_annotation_index: -1,
 	    points_vbo,
 	    colors_vbo,
 	    visual_vao
@@ -130,7 +154,32 @@ impl AnnotationState {
 pub fn handle_annotation(proj: &glm::Mat4, input_state: &program::InputState,
 			 annotation_state: &mut AnnotationState,
 			 session: &mut program::Session) { 
-    
+
+    let mut closest = edit::SELECTION_SENSITIVITY;
+    let mut closest_ind = -1;
+    let mut cind = -1 as i32;
+
+    for ian in 0..session.annotations.len() {
+	let annotation_points : Vec<glm::Vec3> = session.annotations[ian].iter().
+	    map(|x : &Box<dyn Annotation> | x.as_ref().get_world_position()).collect();
+
+	let ind = utils::select_point(input_state.mouse_state.pos,
+				      &annotation_points,
+				      proj, closest);
+
+	if ind >= 0 {
+	    closest_ind = ind;
+	    closest = utils::length_mouse_pos_to_point(input_state.mouse_state.pos,
+						       annotation_points[ind as usize],
+						       proj);
+	    cind = ian as i32;
+	}
+    }
+
+    if closest_ind >= 0 {
+	annotation_state.curr_cylinder_index = cind;
+	annotation_state.curr_annotation_index = closest_ind;
+    }
 }
 
 
@@ -138,10 +187,9 @@ static ANNOTATION_X_OFFSET: f32 = 0.05;
 static ANNOTATION_Y_OFFSET: f32 = 0.04;
 
 pub fn update_gpu_annotation_state(annotation_state: &AnnotationState,
-				   session: &program::Session) {
+				   session: &mut program::Session) {
 
     let cylinders = &session.cylinders;
-
 
     let mut sum = 0;
     for i in &session.annotations {
@@ -152,7 +200,7 @@ pub fn update_gpu_annotation_state(annotation_state: &AnnotationState,
     let mut colors : Vec<glm::Vec4> = Vec::with_capacity(sum);
 
     for j in 0..cylinders.len() {
-	let annotations = &session.annotations[j];
+	let annotations = &mut session.annotations[j];
 	let mut hash_map: HashMap<usize, usize> = HashMap::with_capacity(annotations.len());
 	let mut nums : Vec<usize> = Vec::with_capacity(cylinders[j].
 						       spline.
@@ -177,6 +225,8 @@ pub fn update_gpu_annotation_state(annotation_state: &AnnotationState,
 	    nums.push(0);
 	}
 	
+	// Reassign, because the previous reference got moved (??) and I'm confused
+	let annotations = &mut session.annotations[j];
 	
 	let mut xoffsets : Vec<f32> = Vec::with_capacity(annotations.len());
 	for anni in 0..annotations.len() {
@@ -194,12 +244,20 @@ pub fn update_gpu_annotation_state(annotation_state: &AnnotationState,
 	for anni in 0..annotations.len() {
 	    positions.push(cylinders[j].spline.control_points[annotations[anni].get_render_index()] +
 			   glm::vec3(xoffsets[anni], ANNOTATION_Y_OFFSET, 0.0)); // Copy trait?
-	    println!("Pushed position {:?}", positions[positions.len() - 1]);
-	    colors.push(annotations[anni].get_color());
+
+	    annotations[anni].set_world_position(positions[positions.len() - 1]);
+
+	    let col =
+		if annotation_state.curr_cylinder_index == j as i32 &&
+		annotation_state.curr_annotation_index == anni as i32 {
+		    glm::vec4(1.0, 0.0, 0.0, 1.0)
+		} else {
+		    annotations[anni].get_color()
+		};
+	    
+	    colors.push(col);
 	}
     }
-
-    println!("Position length: {}", positions.len());
 
     unsafe {
 	gl::BindVertexArray(annotation_state.visual_vao);
@@ -268,8 +326,10 @@ pub fn push_default_annotations(cylinder_num: usize,
     let ll = annotations.len();
     annotations.push(Vec::new());
     annotations[ll].push(Box::<SizeAnnotation>::from( SizeAnnotation { size: 1.0,
+								       position: glm::vec3(0.0, 0.0, 0.0),
 								       index: 0 }));
     annotations[ll].push(Box::<SizeAnnotation>::from( SizeAnnotation { size: 1.0,
+								       position: glm::vec3(0.0, 0.0, 0.0),
 								       index: num_points - 1}));
 						 
 }

@@ -7,7 +7,6 @@ use imgui_glfw_rs::glfw::{self,Context,Key,Action};
 use crate::{ModelerState, GLFWState};
 use std::ffi::{CString};
 use std::f32;
-use num_traits::identities::One;
 use std::mem;
 use std::cell::Cell;
 
@@ -336,7 +335,8 @@ pub fn run_loop(mut glfw_state: GLFWState, modeler_state: ModelerState) {
 					      &input_state, annotation_state,
 					      &mut session);
 
-		// annotation::update_gpu_annotation_state(&annotation_state, 
+		annotation::update_gpu_annotation_state(&annotation_state,
+							&mut session);
 	    },
 	}
 

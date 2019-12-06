@@ -33,6 +33,10 @@ pub fn run_gui(session: &mut program::Session,
 	.position([0.0, 0.0], Condition::Always)
 	.build(&ui, || {
 	    ui.text(im_str!("sketch3d - Main menu"));
+	    let mut f = 3.2;
+	    ui.input_float(im_str!("Test"), &mut f);
+	    println!("Output from input_float: {}", f);
+	    ui.separator();
 	    ui.separator();
 	    
 	    let old_prog_num = program_state.to_num();
@@ -77,13 +81,6 @@ pub fn run_gui(session: &mut program::Session,
 			    *program_state = program::ProgramState::Annotate(
 				annotation::AnnotationState::new(edit_state, session)
 			    );
-
-			    /* session.annotations = vec![Box::<annotation::SizeAnnotation>::
-						       from(annotation::SizeAnnotation
-							    { size: 1.0, cylinder_index: 0, index: 0 }),
-						       Box::<annotation::SizeAnnotation>::
-						       from(annotation::SizeAnnotation
-							    { size: 2.0, cylinder_index: 0, index: 5 })]; */
 			    
 			},
 			
@@ -102,6 +99,15 @@ pub fn run_gui(session: &mut program::Session,
 		},
 		program::ProgramState::Annotate(_) => {
 		    ui.text(im_str!("You go annotate!"));
+		    for annl in session.annotations.iter_mut() {
+			for ann in annl.iter_mut() {
+			    
+			    println!("In inner annotations iteration");
+			    let mut f = ann.get_size();
+			    ui.input_float(im_str!("Some size annotation"), &mut f);
+			    ann.set_size(f);
+			}
+		    }
 		},
 		program::ProgramState::Draw => {
 		    ui.text(im_str!("Do some drawing already!"));

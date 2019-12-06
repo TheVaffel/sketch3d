@@ -135,28 +135,29 @@ pub fn get_cylinder_values(radius : f32,
 			   annotations: Option<&Vec<Box<dyn annotation::Annotation>>>)
                            -> (Vec<f32>, Vec<u32>) {
 
-    let avv : Vec<(usize, f32)> = Vec::new();
+    let mut avv : Vec<(usize, f32)> = Vec::new();
     
-    match annotations {
+    match &annotations {
 	None => {
 	    avv.push((0, 1.0));
-	    avv.push((spline_state.control_points.len(), 1.0));
-	    
+	    avv.push((spline_state.spline_points.len() + 1, 1.0));
 	},
-	Some(&vec) => {
-	    for i in vec {
-		if i.get().alters_size() {
-		    avv.push((i.get().get_render_index(),i.get().get_size()));
+	Some(vec) => {
+	    for i in *vec {
+		if i.as_ref().alters_size() {
+		    avv.push((i.as_ref().get_render_index() * splinedraw::SPLINE_RESOLUTION,
+			      i.as_ref().get_size()));
 		}
 	    }
 
-	    avv.sort();
+	    avv.sort_by(|a, b| a.partial_cmp(b).unwrap()); // sort();
 	}
     };
-    
+
     let len_resolution = spline_state.spline_points.len() - 1;
     let icirc_resolution = circ_resolution as u32;
 
+    
     // The hemisphere at each end: 2 * resolution panes around its circumference,
     // resolution - 1 of those in height, and then 2 * resolution triangles to close it on top.
     let num_end_triangles =
@@ -252,6 +253,7 @@ pub fn get_cylinder_values(radius : f32,
     let base_length = 1.0; // length - 2.0 * radius;
 
     let mut curr_ann = 0;
+
     
     for i in 0..(len_resolution + 1) {
 	while i > avv[curr_ann].0 {
@@ -262,8 +264,8 @@ pub fn get_cylinder_values(radius : f32,
 	let radius = radius * if i == avv[curr_ann].0 {
 	    avv[curr_ann].1
 	} else {
-	    (avv[curr_ann - 1].1 * (i - avv[curr_ann - 1].0) as f32 +
-	     avv[curr_ann].1 * (avv[curr_ann].0 - i) as f32) /
+	    (avv[curr_ann - 1].1 * (avv[curr_ann].0 - i) as f32 +
+	     avv[curr_ann].1 * (i - avv[curr_ann - 1].0) as f32) /
 		(avv[curr_ann].0 - avv[curr_ann - 1].0) as f32
 	};
 	

@@ -3,13 +3,14 @@ extern crate gl;
 
 use crate::program;
 use crate::edit;
+use crate::utils;
 
 use glm::builtin::*;
 
 pub static LINE_LIMIT: f32 = 1.0 / 20.0; // 5% of window width
 static MAX_NUM_POINTS: usize = 400;
 
-static SPLINE_RESOLUTION: usize = 5; // Points per control point
+pub static SPLINE_RESOLUTION: usize = 5; // Points per control point
 static SPLINE_DEGREE:     usize = 3;
 
 
@@ -279,7 +280,7 @@ pub fn handle_spline_draw(mouse_state: &program::MouseState, spline_state: & mut
     
     if mouse_state.button1_pressed && mouse_state.in_window {
 	let clone = mouse_state.pos.clone();
-	let new_point = edit::normalize_point(clone);
+	let new_point = utils::normalize_point(clone);
 	let new_point  = glm::vec3(new_point.x, new_point.y, 0.0);
 	
 	if spline_state.control_points.len() == 0 {
