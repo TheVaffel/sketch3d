@@ -44,7 +44,7 @@ I will start off with a survey of related work.
 
 \pagebreak
 
-\section{Related Work}
+\section{Related Work} \label{related_work}
 
 Although my work is within the field of procedural content generation, it has many aspects related to interactive 3D-modeling, and in particular, sketch-based 3D-modeling. I will discuss previous work within both of these fields.
 
@@ -163,7 +163,7 @@ Peeling was first described in \cite{rigid_igarashi}. It is a way of editing tha
 
 One subjective observation from testing out both of these methods, is that Laplacian editing generally provides more predictable behavior, while peeling is more convenient for making small changes to the spline shape.
 
-\subsection{Creating Annotations}
+% \subsection{Creating Annotations}
 
 % Should probably implement this before saying I implemented it
 
@@ -240,9 +240,20 @@ To support drawing a spline from a given start point to a given end point, I hav
 % We don't use this directly, we utilize the fact that we are interpolating at specific points with fixed distances.
 While the above algorithm makes it easy to determine the position of a single point from a spline, it is a costly operation to perform for every single interpolated point.
 
-One observation is that we may benefit from, is that each point on the $d$-degree spline can only depend on a maximum of $d + 1$ spline coefficients. 
+One observation that we may benefit from, is that each point on the $d$-degree spline can only depend on a maximum of $d + 1$ spline coefficients, since each coefficient is only non-zero on $d + 1$ consecutive intervals.
 
 % Explain How you pre-compute the coefficients you badass genius
+ParaGem uses a more efficient optimization, however. One rather simple observation is that each coefficient can be pre-computed for each $x$. Furthermore, we choose the interpolation points to be a constant number $s$ of equidistant points in-between the control points $P$. We choose the intervals to be of size 1, so that $t_i = i$. Having all intervals in the same size, and the interpolation points uniformly arranged within the intervals, we get the relation
+
+\begin{equation} \label{eq_semi_periodic}
+B_{i,d}(x) = B_{i + 1,d}(x + 1),
+\end{equation}
+
+which means that we only need to compute the coefficients for $x \in \left[t_i, t_{i + 1}\right)$ for a
+  single half-open interval $\left[{t_i, t_{i + 1}}\right)$. The remaining coefficients are the same as the ones computed, only shifted.
+    
+    Now, since we have chosen the $s$ points to be equidistant, we know that $x$ takes on the form $x = t_i + k * \dfrac{1}{s}, \text{ for } k \in [0..{s-1}]$, and that this is the case for every interval, so that we may make use of the equation \ref{eq_semi_periodic} to generalize coefficients of one interval to others. A final observation we can make use of, is that for each interval, there are only $d + 1$ coefficients that are non-zero on that interval. Thus, in the end, we can get away with pre-computing and storing only $(d + 1)s$ coefficients: One for each non-zero coefficient in the interval, for each $x$ in the interval.
+    
 
 \subsection{Laplacian Curve Editing} \label{section_laplacian}
 
@@ -386,7 +397,7 @@ so that, in the end, we find the new curve vertices $V'$.
 
 \subsubsection{Harder Restrictions on Fixed Points}
 
-Although the Laplacian Curve Editing approach provides an intuitive approach to editing the curve, the fixed points were found to move an unacceptable amount due to having a least-squares constraint and not being completely fixed. ParaGem probably encounters this problem because the ratio of the number movable points to the number of fixed points is generally higher than in the work by Sorkine et al., so that the quadratic objective function receive less influence from the fixed points altogether.
+Although the Laplacian Curve Editing approach provides an intuitive approach to editing the curve, the fixed points were found to move an unacceptable amount during editing due to having a least-squares constraint and not being completely fixed. ParaGem encounters this problem probably because the ratio of the number movable points to the number of fixed points is generally higher than in the work by Sorkine et al., so that the quadratic objective function receives less influence from the fixed points altogether.
 
 This is fixed by imposing a larger weight on the fixed-point terms of the optimization objective, implemented by multiplying both the non-zero elements of the $2|U|$ bottom rows of $B$ and the last $2|U|$ elements of $\mathbf{c}$ by the same constant factor.
 
@@ -396,18 +407,16 @@ In addition to traditional Laplacian curve editing, I have also implemented \tex
 
 Both peeling and traditional Laplacian curve editing are implemented and available for the user.
 
-\pagebreak
-
 \subsection{Implementation Details}
 
 % Is there much to say here? Used Rust? Used OpenGL, ImGUI, nalgebra..
 
-ParaGem was implemented using the Rust language. Visualization was done using OpenGL and the user interface was made with \texttt{imgui-rs} \cite{imguirs}. This project also made use of \texttt{nalgebra} \cite{nalgebra}, a general-purpose linear algebra library, used for the implementation of the sparse linear algebra algorithm of Laplacian Editing.
+ParaGem was implemented using the Rust language. Visualization was done using OpenGL and the user interface was made with \texttt{imgui-rs} \cite{imguirs}. Most of the geometry calculations were done using \texttt{glm-rs} \cite{glmrs}. This project also made use of \texttt{nalgebra} \cite{nalgebra}, a general-purpose linear algebra library, used for the implementation of the sparse linear algebra algorithm of Laplacian Editing.
 
 
 \pagebreak
 
-\section{Future Work} \label{section_future_work}
+\section{Future Work and Conclusion} \label{section_future_work}
 
 % I go through both what is needed to finish this project, and things that could be further directions
 
@@ -425,40 +434,88 @@ For now, the concept of submodels is not implemented, so that every model only c
 
 \textbf{Connection annotation}, letting the user attaching one submodel to another using annotations to specify various attributes, like connection points, angle and size of a connection.
 
-\textbf{Arrangements}, letting the user attach multiple of the same submodel on a surface area of another. Here, it would be interesting to add possibility for random scattering (with probability distribution) and organized arrangements of connection (like rows or grids of them). I expect such a feature to require a major implementation effort to succeed.
+\textbf{Arrangements}, letting the user attach multiple of the same submodel on a surface area of another. Here, it would be interesting to add possibility for random scattering with custom probability distribution and organized arrangements of submodules, like rows or grids. I expect such a feature to require a major implementation effort to succeed.
 
-\textbf{Recursion}, which would let the user create complex models with repeated structure, like trees, as discussed earlier.
+\textbf{Recursion}, which would let the user create complex models with repeated structure, like plants, as discussed earlier.
 
-\subsubsection{Annotations}
-
-\subsubsection{Primitives}
-
-\subsubsection{3D Editing}
+\subsubsection{Annotations and Variables}
 
 % More annotations
+% Inter-annotation restrictions
 
-% Functions over parameters for row-grid-arrangements of submodels
+The annotation-variable system still lacks multiple features to be an efficient toolkit for modelers.
+
+The number of annotation types is still at a low. Ideally, ParaGem should be enhanced with annotations that can restrict bending of geometric primitives like the generalized cylinder, and also its cross-section shape, along with length and positions. Also, as more geometric primitives are added to the mix, new annotation types specific to those may be beneficial, like the scale of different axes of an ellipsoid.
+
+The variable system barely has any flesh on its back at this point. A proper user interface for defining and managing variables is a start. Naturally follows the ability to refer variables to annotations, and to allow variables to take on a wide range of values when generating a model. Other ideas include user-written math expressions that are evaluated at run-time, so that some variables can be defined in terms of others.
+
+\textit{Arrangement functions} is a last feature that will require several other aspects to be implemented first, among others the \textit{Arrangement} feature for submodels as described above. The idea is that in a procedurally created and arranged set of submodules, each submodule should receive parameters that depend on their position in the arrangement. As an example, when creating a model of a dragon with spikes arranged along its back and tail, the user should be able to specify that spikes on the torso should be longer than spikes near the end of the tail.
+
+% Should I come back here when I have a better idea of how this is going perhaps?
+
+\subsubsection{Geometric Primitives}
+
+In the current implementation, the only available geometric primitive is the generalized cylinder, which, as previously mentioned, is because of its demonstrated flexibility.
+Having more primitives available to the user, however, would undeniably make the application much more useful for a variety of models. Cubes, ellipsoids, cones, and tetrahedra are natural elements to include into the collection. Furthermore, adding a two-dimensional primitive, like a quad or a triangle, might also be beneficial for a modeler.
 
 % More primitives (cuboids, tetrahedra, ellipsoids, sheets (?))
 
-% Inter-annotation restrictions
+\subsubsection{3D Editing}
+
+Another apparent restriction in the current application, is that all editing happens in two dimensions, wich is one less than the ideal number of dimensions.
+
+While extending a 3D-modeling program to three dimensions is strictly necessary, it will require a careful evaluation of the user interface to ensure that ambiguous controls behave as intuitively as possible. The safest bet would be to model it closely to other interfaces, like \cite{gingold09}.
 
 % 3D edit
 
+\subsubsection{Usability Features and Producing Results}
+
+While not necessarily a technical challenge, including features like undo/redo, copying and saving of models are imperative for a good user experience.
+
+Indeed, the program currently lacks one of the most important parts of its purpose: Producing and showing a variety of models from single annotated procedural model.
+
+As may be apparent from this section, implementation is what is really lacking in this project, while the ambitions have had their time to run ahead. 
+
 \subsection{Future Directions}
 
+Apart from planned features, it is interesting to review what other interesting paths could follow from this project.
+
+\subsubsection{Issue of Complexity}
 % Discuss issues regarding usability (starting to be rather complex)
 
+A glaring issue that has not yet been adressed, is the problem of complexity. The purpose of ParaGem is to provide a relatively simple and intuitive way to produce, explore and communicate procedural geometry, also by non-technical users. Imposing a number of concepts like submodels, annotations and variables, may work against this intent.
+
+One could imagine a future version of the program where the user interface is layered into two modes; ``simple'' and ``advanced'' mode, where the latter can be activated to make it possible to express models and relations that are hard to deal with in the simple interface.
+
+The most scientifically reasonable way to sort out this problem would be to conduct a user study, and observe what features are most useful for general use. It is fully possible that limiting the introduction of new geometric primitives, annotation types and variable customization may give a more satisying experience for the user overall.
+
+\subsubsection{Fine Details and Textures}
 % Mention textures (noise-driven?), both as fine-grained detail and color textures.
+
+The application is only designed to allow for creating crude approximations to the body of a 3D model, and little attention has been given to fine-grained detail or textures. In the case of this application, such details are probably unnecessary, and does not add to the user's ability to explore and create models within the intended scope.
+
+If the essence of this project was to be extended to create models for productions use however, adding details and texture would both be deemed mandatory. Kazmi et al. \cite{hybrid_character_modeling} provided suggestions to extend Gingold et al.'s work by adding fine-grained geometric detail to surfaces using shading in supplied input images.
+
+Textures containing color would naturally also be an extension in this manner. It is tempting to make textures parameterizable as well using e.g. Perlin noise \cite{perlin_noise}. How to best integrate such a component with the rest of the application in a user friendly way is a hard question I will not attempt to answer.
+
+\subsubsection{Non-Additive Editing}
 
 % Include \cite{schmidt08} - work that is a bit more related to what I have in mind (but perhaps not as ambitious, with recursion and stuff).
 % This could also be used to create terrains (submodels are not just additive, but can be subtractive or just surface modifications instead)
 
+A final notable issue of the application for creating general models, is that it strictly uses additive synthesis when creating models, meaning that creating models with holes and caveats would be very tricky to do. Model types like terrain and anything that naturally contains holes would be hard to reproduce with ParaGem.
 
+One notable work that could greatly help in this manner, is the (rather impressive, if I may say so myself) work by Schmidt et al. \cite{schmidt08}, in which a model is a geometric primitive with a hierarchical collection of edits on it. Using surface modifications like hills, holes and caveats in addition to other geometric primitives as nodes in the aforementioned model tree, could greatly extend the different types of objects that are expressible within ParaGem. Terrain modeling is an example of a field where modeling changes as erosions or hills in the landscape is much more appropriate than only repeatedly adding geometric primitives to make up to surface.
 
-\section{Conclusions} \label{section_conclusion}
+As was already mentioned in section \ref{related_work}, the work in \cite{schmidt08} is already producing a set of modification types and parameters in a tree structure, so that extending this approach to producing procedural models is not an entirely infeasible idea.
+
+\subsection{Conclusions} \label{section_conclusion}
 
 % Project not finished, but we have shown examples of it working (make sure to actually show examples of it working)
+
+In this report, I have given an overview of what ParaGem is, what its intentions are, the state of its development, and features that remain to be given life.
+
+I believe the project has potential to provide interesting insights regarding production of procedural content, but ultimately lacks the effort needed to turn it into a usable application.
 
 \bibliography{report}
 \bibliographystyle{plain}
