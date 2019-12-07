@@ -33,9 +33,6 @@ pub fn run_gui(session: &mut program::Session,
 	.position([0.0, 0.0], Condition::Always)
 	.build(&ui, || {
 	    ui.text(im_str!("sketch3d - Main menu"));
-	    let mut f = 3.2;
-	    ui.input_float(im_str!("Test"), &mut f);
-	    println!("Output from input_float: {}", f);
 	    ui.separator();
 	    ui.separator();
 	    
@@ -104,7 +101,8 @@ pub fn run_gui(session: &mut program::Session,
 			    
 			    println!("In inner annotations iteration");
 			    let mut f = ann.get_size();
-			    ui.input_float(im_str!("Some size annotation"), &mut f);
+			    ui.drag_float(im_str!("Some size annotation"), &mut f)
+                                .min(0.05).max(4.0).speed(0.1).build();
 			    ann.set_size(f);
 			}
 		    }

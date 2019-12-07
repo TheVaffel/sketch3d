@@ -180,6 +180,10 @@ pub fn handle_annotation(proj: &glm::Mat4, input_state: &program::InputState,
 	annotation_state.curr_cylinder_index = cind;
 	annotation_state.curr_annotation_index = closest_ind;
     }
+
+    for cyl in 0..session.cylinders.len() {
+        session.cylinders[cyl].update_mesh(&session.annotations[cyl]);
+    }
 }
 
 
