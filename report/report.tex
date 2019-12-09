@@ -8,6 +8,7 @@
 \usepackage{graphicx}
 \usepackage{fancyhdr}
 \usepackage{hyperref}
+\usepackage{graphicx}
 
 
 \fancyhf{}
@@ -16,103 +17,132 @@
 
 \begin{document}
 
-\title{ParaGem - An Intuitive Tool for Creating Procedural Content}
+
+\iffalse
+\title{ParaGem - An Intuitive Tool for Creating Procedural Geometry}
 
 \author{Håkon Flatval}
 
 \maketitle
+\fi
+
+\input{front_page}
+\pagebreak
+
+
 \thispagestyle{fancy}
 
-\begin{center}
+% \begin{center}
 
   % Life hack, create abstract before anyone tells you it's impossible to achieve what you are doing
-  {\bf Abstract:} Procedural generation with shape grammars is powerful, but is unintuitive and time consuming to specify, even for experts. In this project, I have looked closer at generating geometric shape grammars more intuitively, by allowing the user to get real-time feedback on their changes to the grammar. The created application allows the user to draw and specify the shape by using primitives. The primitives can be linked together with \textit{pivot points}, for which the user will specify rules, which they will adhere to when the model is used for generating a large amount of objects procedurally. Letting the user specify complicated structure and connections turns out to be favorable in many situations, despite requiring a bit of technical knowledge by the artist.
+\section{Abstract}
+    %{\bf Abstract:}
+Procedural generation of geometry is a powerful technique for creating a large amount of content efficiently, but can be unintuitive and labor intensive in practice, even for experts. In this project, I suggest a tool -- ParaGem -- that can help modelers gain an intuition on procedural content generation and create and explore simple procedural models. ParaGem is not finished, and this report serves more as a visionary design document, but will also discuss the implemented components of the application. ParaGem allows the user to create a model from \textit{submodels}, which in turn are composed of geometric primitives. To support procedural generation, parts of the submodels can be annotated with attributes like size and orientation, each of which can take on a user-defined range of values. Ultimately, many different 3D models can be produced from the submodels by varying the attributes within their ranges. While the unfinished state of the project makes it hard to draw any conclusions, I finish off with pointing out a number of future directions for ParaGem that might be interesting to explore.
   
-\end{center}
+%\end{center}
 
+\pagebreak
+  
 \section{Introduction}
 
-Procedural generation is a powerful tool for artists, enabling them to create a large amount of geometric entities that can incorporate both natural-looking variety and order alike. One of the most prominent problems with procedural generation today, is that a significant amount of time and knowledge is required in order to successfully create a procedurally generated population of any kind of entity.
+Procedural generation is a powerful tool for artists, enabling them to create a large amount virtual content efficiently. While procedural generation can be applied to a large variety of virtual content, such as audio, behavior and stories (\cite{pcg_survey_2017}), the focus on this report will be procedural generation as applied to the geometry. A successful procedural system allows an artist to produce similar geometric entities that can express both natural-looking variety and order alike. One of the most prominent problems with procedural generation today however, is that a significant amount of time and knowledge is required in order to successfully create a procedurally generated population of any kind of entity. The primary goal of this project is to design and create an application that can help users explore and gain an intuition on the behavior of procedural models.
 
-In this document, I will discuss my project ParaGem, a modeling tool for artists that allows for specifying scalar parameters and high-level connections in-between primitives of the geometry. The intended purpose of the program is to enable creation of models whose geometry depends on a set of parameters, so that many variations of the same model can be produced by varying these parameters. The program is largely inspired by Structured Annotations introduced by  Gingold et al. \cite{gingold09}, both considering the choice of geometric primitives for modeling and representation of relations between model components.
+In this document, I will discuss my project ParaGem, a modeling tool primarily for artists and non-technical users that allows for creating procedural models by specifying parameters and high-level connections between components of the geometry. The intended purpose of the program is both to enable creation of procedural models; models whose geometry depends on a set of parameters, but also to give the user a beginner-level tool for exploring and gaining an intuition on the use of procedural generation. The program takes in part inspiration from Structured Annotations introduced by Gingold et al. \cite{gingold09}, both considering the choice of geometric primitives for modeling and representation of relations between model components.
 
-While ParaGem would be too simplistic for industrial use compared to commercial procedural content tools, like SideFX' Houdini \cite{houdini} and Esri's CityEngine \cite{cityengine}, it is rather aimed to be a useful tool for gaining an intuition of the behavior of procedural content, and as a way for artists to communicate their intentions of procedural content e.g. how size, asymmetry and complexity can vary and are related between components of the model.
+ParaGem would be too simplistic for industrial use in contrast to commercial procedural content tools, such as SideFX' Houdini \cite{houdini}. It sacrifices flexibility and power in favor of ease of use and a simple learning curve. The application should be able to serve as an introduction for the user to procedural generation and simple concepts related to it.
 
-ParaGem is not finished, and I am therefore not able to report any user experience of the program, nor its practical utility. However, I will present an overview of ParaGem (section \ref{section_architecture}), its different implemented components (section \ref{section_components}), and the technical details of the underlying algorithms (section \ref{section_algorithms}). At last, I highlight what further work must be conducted to finish the application, and ideas for future directions of the project (section \ref{section_future_work}).
+%it is rather aimed to be a useful tool for gaining an intuition of the behavior of procedural content, and as a way for artists to communicate their intentions of procedural content e.g. how size, asymmetry and complexity can vary and are related between components of the model.
 
-I will start off with a survey of related work.
+ParaGem is not finished, and I am therefore not able to report any user experience of the application, nor its practical utility. However, I will present an overview of ParaGem as it is envisioned (section \ref{section_architecture}), its different implemented components (section \ref{section_components}), and the technical details of the underlying algorithms (section \ref{section_algorithms}). At last, I highlight what further work must be conducted to finish the application, and ideas for future directions of the project together with a conclusion (section \ref{section_future_work}).
+
+I will start off with a short survey of related work.
 
 \pagebreak
 
 \section{Related Work} \label{related_work}
 
-Although my work is within the field of procedural content generation, it has many aspects related to interactive 3D-modeling, and in particular, sketch-based 3D-modeling. I will discuss previous work within both of these fields.
+Although my work is within the field of procedural content generation, it has many aspects related to interactive 3D-modeling, and in particular, sketch-based 3D-modeling. I will discuss some of the related previous work within both of these fields.
 
 \subsection{Procedural Content}
 
 Procedural content generation (PCG) is by no means a new subject. PCG has been used in modeling diverse entities like plants \cite{plant_l_system}, buildings \cite{building_shape_grammar}, cities \cite{procedural_city_modeling}, and terrains \cite{early_terrain_generation} for a long time. 
 
-Many surveys exist, focusing on generation of different types of content. The recent survey by Galin et al. \cite{terrain_survey_2019} provides an extensive survey of terrain generation. Hendrikx et al. \cite{pcg_survey_2013} and Carli et al. \cite{brazilian_pcg_survey} both consider procedural content as used in games. Freiknecht et al. \cite{pcg_survey_2017} also consider games in their survey, but also includes PCG in domains outside computer graphics, like NPC interaction and quests. The adaption into industry is also well-documented (e.g. \cite{amato2017}).
+Many surveys exist, focusing on generation of different types of content. The recent survey by Galin et al. \cite{terrain_survey_2019} provides an extensive survey of terrain generation. Hendrikx et al. \cite{pcg_survey_2013} and Carli et al. \cite{brazilian_pcg_survey} both consider procedural content as used in games. Freiknecht et al. \cite{pcg_survey_2017} also consider games in their survey, but additionally includes PCG in domains outside computer graphics, like NPC interaction and quests. \cite{amato2017} is an example of a survey documenting the real-world use of procedural generation as adapted in industry.
 
-One popular way of realizing PCG is through the use of shape grammars \cite{stiny2006shape}. Shape grammars are probabilistic formal grammars where terminal symbols can correspond geometric meshes -- primitive shapes. Like normal grammars, shape grammars work by repeatedly replacing symbols with other symbols using production rules until only terminal symbols remain, and then produce geometry from the resulting string. Shape grammars have been successfully used for modeling buildings \cite{building_shape_grammar} and plants \cite{plant_l_system} (with L-systems, that are closely related to shape grammars).
+There are a number of professional software used in industry that provide procedural content generation as a tool to the user. The aforementioned software application Houdini \cite{houdini} is among the most popular systems, providing tools for creating a wide range of procedural content, from man-made structures like buildings, to terrains and vegetation. Houdini is built for use in both movies and games. CityEngine \cite{cityengine} by Esri is another software product made for professional city planning. It allows the user to build cities automatically and shape it according to their own needs. SpeedTree \cite{speedtree} and WorldMachine \cite{worldmachine} are examples of more specialized software for PCG. SpeedTree gives tools for creating a variety of vegetation, and is used both in movies and games. WorldMachine contains tools for procedural terrain generations, and have seen uses in both video and games.
 
-% Mention Perlin noise for textures and terrains and whatnot?
+One popular way of realizing PCG is through the use of shape grammars \cite{stiny2006shape}. Shape grammars are probabilistic formal grammars where terminal symbols can correspond to primitive shapes. Like normal grammars, shape grammars work by repeatedly replacing symbols with other symbols using production rules until only terminal symbols remain. In the case of shape grammars, resulting string is subsequently used as a recipe to generate geometry. Shape grammars have been successfully used for modeling buildings \cite{building_shape_grammar} and plants \cite{plant_l_system}, the latter using L-systems, that are closely related to shape grammars.
+
+For areas like texture and terrain generation, the use of fractals and noise is a common technique to create content with high complexity. \textit{Book of Shaders} has a few chapters describing various techniques for generating noise and random patterns, e.g. \cite{book_of_shaders}. Perlin noise \cite{perlin_noise} is an example of such a technique, and is a popular choice of noise function. There are many resources providing insights in how it can be used, e.g. \cite{tutorial_perlin}.
+
+% Mention Perlin noise for textures and terrains and whatnot? (Check)
 
 \subsection{Sketch-Based Modeling} \label{subsection_review_sketch}
 
-3D-modeling is a task that requires significant effort and specialized experience to perform successfully and efficiently, making it a bottleneck when communicating three-dimensional models by e.g. artists. Sketch-based modeling is one attempt at overcoming this challenge. 
+3D-modeling is a task that requires significant effort and specialized experience to perform successfully and efficiently, making it a bottleneck e.g. for artists when creating and communicating three-dimensional models. Sketch-based modeling is one attempt at overcoming this challenge. 
 
-In \cite{gingold09}, Gingold et al. give an example of such an approach, where the user creates 3D models out of pre-defined primitive. Their most important primitive is the generalized cylinder, a shape of circular cross-section that is extruded along a spline in three dimensions. The user inputs strokes to define the spline, from which the application creates the generalized cylinder.
+The most general problem in this domain is to produce a full 3D-model from a single hand-drawn sketch. Smirnov et al. \cite{recent_sketch_based} recently made a contribution addressing the challenge. Their approach uses a convolutional neural network (CNN) in addition to a post processing pipeline to automatically synthesize a model made from parameterized patches (Coons patches).
 
-The main focus of Gingold et al.'s paper is the introduction of \textit{structured annotations}. Structured annotations are restrictions the artist can put on the model so as to ensure symmetry, consistent sizes and angles etc. By conducting user tests, they confirm that the introuction of structured annotations enable novice's to more easily create aesthetically pleasing, simple models in a short time. I have made use of concept of structured annotations in ParaGem, extending them to handle variables instead of constants.
+In \cite{gingold09}, Gingold et al. give an example of a different approach in sketch-based modeling, where the user creates 3D models out of pre-defined primitives and subsequently annotates them to ensure symmetry and consistency between different parts of the model. The primitives are created and manipulated using natural stroke gestures on the screen. This work has been of particular interest for the design of ParaGem, and I will discuss it more extensively further on.
 
 At extension of Gingold et al.'s approach was presented by Kazmi et al. \cite{hybrid_character_modeling}, where heightmaps are created from textures, which can be turned into fine-grained detail 
 
-Other approaches to sketch-based modeling include that of Huang et al. \cite{procedural_sketch_cnn}, in which the authors use two convolutional neural networks (CNN) to create a threedimensional model from a hand-drawn sketch, provided it belongs to one of a few pre-determined object classes. One of the CNNs deduces which of the classes the sketch represents, while the other determines various parameters of the object so that the final model resembles the sketch as much as possible.
+Other approaches to sketch-based modeling include that of Huang et al. \cite{procedural_sketch_cnn}, in which the authors use two CNNs to create a threedimensional model from a hand-drawn sketch, provided it belongs to one of a few pre-determined object classes. One of the CNNs deduces which of the classes the sketch represents, while the other determines various parameters of the object so that the final model resembles the sketch as much as possible.
 
-A few other related methods, although they use RGB photographs instead of sketches, are Pixel2Mesh \cite{pixel2mesh} by Wang et al. and procedural modeling of a building from an image \cite{procedural_building_from_image} by Nishida et al. Pixel2Mesh takes as input a photograph of a 3D object and returns a 3D mesh of the same object. It uses a graph-based convolutional neural network to deform a sphere (whose mesh is represented by a graph) into the desired object.
+A few other related methods, although they use RGB photographs instead of sketches, are Pixel2Mesh \cite{pixel2mesh} by Wang et al. and procedural modeling of a building from an image \cite{procedural_building_from_image} by Nishida et al. Pixel2Mesh takes as input a photograph of a 3D object and returns a 3D mesh of the same object. It uses a graph-based convolutional neural network to deform a sphere whose mesh is represented by a graph into the desired object.
 
 Nishida et al.'s approach also takes an RGB image as input, as well as a user-specified outline of the building in the image. Subsequently, the CNN classifies the building based on building mass style, and then other CNNs to determine style of ledges, roof and windows together with various parameters for all of these components. The result is a shape grammar that can be used for generating similar buildings.
 
 \subsection{Combining Procedural Generation and Sketch-based Modeling}
 
-As may be apparent from section \ref{subsection_review_sketch}, work with sketch-based modeling often make use of procedural models to reduce the number of possible interpretations of an input sketch. Nshida et al. \cite{sketch_based_urban_modeling} explicitly creates procedural models; models whose exact geometry depends on a set of variables. While their work restricts itself to modeling buildings, the recent work of Wailly et al. \cite{sketching_parameterized_models} generalizes it to arbitrary models, allowing the user to draw a variety of geometric primitives.
+As may be apparent from section \ref{subsection_review_sketch}, work with sketch-based modeling often make use of procedural models; models whose exact geometry depends of a number of parameters, to reduce the number of possible interpretations of an input sketch. Another work by Nishida et al. \cite{sketch_based_urban_modeling} does exactly this. The user sketches pre-defined procedural parts of a building, which is turned into three dimensional geometry on the fly. In addition, their application explicitly creates procedural models which in turn can be used to create buildings similar to the original. While Nishida et al.'s work restricts itself to modeling buildings, the recent work of Wailly et al. \cite{sketching_parameterized_models} generalizes it to arbitrary models, allowing the user to draw a larger variety of geometric primitives.
 
-At last, the work by Schmidt and Singh \cite{schmidt08} on modeling using surface trees should be mentioned in this context. They represent alterations of a surface as a tree of different edits, allowing for consistent behavior when changing and copying large ``base'' edits. Although not an explicit goal of their method, the resulting geometry is a procedural model, which could potentially be used for procedural content generation.
+The work by Schmidt and Singh \cite{schmidt08} on modeling using surface trees should also be mentioned in this context. They represent the model as a series of alterations of a surface, structured as a tree, allowing for consistent behavior when changing and copying large ``base'' edits. Although not an explicit goal of their method, the resulting geometry is a procedural model, which could potentially be used for procedural content generation.
 
 \pagebreak
 
 \section{Overview} \label{section_architecture}
 
-The goal of ParaGem has been to unite the power of procedural content generation with the simplicity of sketch-based modeling. The intention is to create a new, simple way of communicating geometric entities that also encapsulates information about natural variation. My approach is heavily inspired by that of Gingold et al. \cite{gingold09}, and my aim has been to extend their approach by allowing the user to create procedural models.
+The goal of ParaGem has been to unite the power of procedural content generation with the simplicity of sketch-based modeling. The intention is to create a simple way of generating geometric models that also encapsulates information about natural variation. As already mentioned, my approach is heavily inspired by that of Gingold et al. \cite{gingold09}, both in terms of general user interface and geometric primitive. I will first provide some details regarding their work.
 
-In this section, I will describe how ParaGem is intended to work and how it is used. I will not distinguish between what has been implemented and not, this will be expanded upon in section \ref{section_components}.
+Their most important primitive, as is mine, is the generalized cylinder, a shape of circular cross-section that is extruded along a spline in three dimensions. The user inputs strokes to define the spline, from which the application creates the generalized cylinder.
+
+The main focus of Gingold et al.'s paper is the introduction of \textit{structured annotations}. Structured annotations are restrictions the artist can put on the model so as to ensure symmetry, consistent sizes and angles etc. By conducting user tests, they confirm that the introuction of structured annotations enable novice's to more easily create aesthetically pleasing, simple models in a short amount of time. I have made use of concept of structured annotations in ParaGem, extending them to also handle variables instead of just constants.
+
+In essence, my aim has been to extend the approach of Gingold et al. by allowing the user to create procedural models using sketching and annotations.
+
+In this section, I will describe how ParaGem is intended to work and how it is used. I will not distinguish between what has been implemented and not, as this will be expanded upon in section \ref{section_components}.
 
 \subsection{Features}
 
-A model in ParaGem consists of several \textit{submodels}, a set of variables, and a set of annotations, each of these concepts will be explained in the following.
+A model in ParaGem consists of one or several \textit{submodels}, a set of \textit{variables}, and a set of \textit{annotations}. Each of these concepts will be explained in the following.
 
 \subsubsection{Submodels}
 
-The user is allowed to make multiple submodels that constitute one model. Submodels work in much the same way as classes do in object-oriented programming. The user defines each submodel once, but can create multiple instances of each, potentially with different parameters. In this sense, the pre-defined geometric primitives of ParaGem are also submodels.
-The model as a whole is represented by a tree structure whose nodes are instances of submodels. Each submodel is defined with a number of parameters, which will be propagated from parent nodes in the tree (or at the base node, defined by the user). The child nodes of each submodel instance is defined on submodule-(class-)level, but may depend on instance parameters. Submodels can be arranged in rows and grids on other submodels, and even allows for recursion.
+The user is allowed to make multiple submodels that constitute one model. Submodels are parameterized geometric models that can be composed of geometric primitives and/or other submodels. Submodels work in much the same way as classes do in object-oriented programming. The user defines each submodel once, but can create multiple instances of each. The input parameters to the submodel instance determine its actual shape. Different instances of a submodel can have different values for these parameters. In this sense, the pre-defined geometric primitives of ParaGem are also submodels. 
+
+By regarding submodel instances that are part of another submodel instance as children of that instance, the model as a whole can be regarded as a tree whose nodes are instances of submodels. The parameters of one submodel instance are propagated from its parent using variables and annotations.
+
+The number and existence of child submodels of one submodel instance, may depend on its instance parameters.
+
+A later version of the submodel system could allow submodels to arranged in rows and grids on other submodels, and even allows for recursive definitions of submodels.
 
 \subsubsection{Variables}
 
-Variables are scalar values that works as input parameters to submodels. They can also be defined as constants global to the whole model tree. There are a number of pre-defined functions that can work on one or multiple variables, like offsets, scaling, exponentials etc.
+Variables are values that works as input parameters to submodels. The values are usually scalar, but arrays and vectors could also find potentially find their uses in future extensions. They can also be defined as constants global to the whole model tree. There are a number of pre-defined functions that can work on one or multiple variables, like offsets, scaling, exponentials, and trigonometric functions.
 
-What makes variables a useful concept for procedural generation, is that they can be defined as ranges of possible values instead of single scalars. This is the way variation is introduced to the model.
+What makes variables, as discussed here, a useful concept for procedural generation, is that they can be defined as ranges of possible values instead of single scalars. This is the way variation is introduced to the model.
 
 Variables manifest themselves when used as input to annotations. 
 
 
 \subsubsection{Annotations}
 
-Annotations are descriptors  which can describe attributes like the size, position, curvature and shape of a part of a primitive. Annotations are what ties varibles to geometric attributes. Each annotation describes one attribute of one part of the model.
+Annotations are descriptors which can describe attributes like the size, position, curvature and shape of a part of a primitive. Annotations are what ties varibles to geometric attributes. Each annotation describes one attribute of one part of the model.
 
-More interestingly, annotations can describe the relations between different components or parts of components of the full model, by having multiple annotations make use of the same variable. In this respect, the annotations are very similar to those presented by Gingold et al. in \cite{gingold09}. For example, this could let us create human models enforcing symmetry in limb sizes, or insects whose wings are required to be longer than their body length.
+More interestingly, annotations can describe the relations between different components or parts of components of the full model, by having multiple annotations make use of the same variable. In this respect, the annotations are very similar to those presented by Gingold et al. in \cite{gingold09}. For example, this could let the user create human models enforcing symmetry in limb sizes, or insects whose wings are required to be longer than their body length.
 
-Another important aspect of the annotation system is the possibility to define recursive models. This enables the user to create complex models with repeated structures, such as trees. For this kind of annotation, the supplied variables determine attributes like scale, position, and recursion limit, as well as any custom scalar varables the user may want to propagate into the child model.
+Annotations are also the mechanism by which submodels are defined in terms of other submodels, and variables are passed from one submodel instance to another. As mentioned, submodels can be defined recursively and this enables the user to create complex models with repeated structures, such as trees. For this kind of annotation, the supplied variables determine attributes like scale, position and orientation of the connection point of the submodel. In addition, the user can propagate any variables as parameters of the child submodel instance.
 
 % EXAMPLES PLZZZ
 
@@ -127,27 +157,29 @@ The user can add multiple geometric primitives in the same submodel. Their poses
 
 % Create annotations
 
-When creating a submodel, the user can at any time switch into annotation mode. Here, the user can choose between a range of annotation types; size, position, rotation and inclusion of other submodels. The user chooses an annotation type from a list, and then clicks the position at which the annotation is to be applied. Different types of annotations are applied to different features of the model -- size annotations are applied to a part of a geometric primitive, while inclusion of other submodels can be applied on the surface of the model. When an annotation is added, it will have default values for the attribute it influences. The user can change this value, or set it equal to some variable.
+When creating a submodel, the user can at any time switch into annotation mode. Here, the user can choose between a range of annotation types; size, position, rotation and inclusion of other submodels. The user chooses an annotation type from a list, and then clicks the position at which the annotation is to be applied. Different types of annotations are applied to different features of the model -- size annotations are applied to a part of a geometric primitive, while inclusion of other submodels can be applied anywhere on the surface of the model. When an annotation is added, it will have default values for the attribute it influences. The user can change these value, or set them equal to some variable.
 
-While in annotation mode, the user also has the opportunity to create variables. Each variable is either defined as an input parameter to the submodel, a static scalar value, or a range of values. One can also define a value as a function of one or more other values. For visualizing the model in the editor, input variables attain a default value, while value ranges attain the average of the range. Both can be changed to arbitrary values by the user.
+While in annotation mode, the user also has the opportunity to create variables. Each variable is either defined as an input parameter to the submodel, a static value, or a range of values. One can also define a value as a function of one or more other values. For visualizing the model in the editor, input variables attain a default value, while value ranges attain the average of the range. Both can be changed to arbitrary values by the user.
 
 Subsequently, the user can create several other submodels in a similar fashion, and is always allowed to go back and edit a previous one. The first submodel will initially be the ``base'' of the model; the root of the model tree. The user can change which submodel is the base model at will.
 
 % Output to file
 
-Finally, the user can visualize variations of the model through the gallery mode. The application creates a user-chosen number of models from the model tree created by the user, where each of the range variables are given a concrete value within its range, chosen uniformly at random. The user can scroll through the gallery and save interesting models in a common format (like \texttt{.obj}). The user can also save the model tree for future use and edits.
+Finally, the user can visualize variations of the model through a gallery mode. The application creates a user-chosen number of models from the model tree created by the user, where each of the range variables are given a concrete value within its range, chosen uniformly at random. The user can scroll through the gallery and save interesting models in a common format (like \texttt{.obj}). The user can also save the model tree for future use and edits.
 
 \pagebreak
 
 \section{Implemented Components} \label{section_components}
 
+Regrettably, only a simple subset of the features described above have been implemented. This includes creating a generalized cylinder, modifying its shape, and annotating it to modify the size of different parts of the cylinder. In the following, I will describe the workings of the interface for these features in detail, while algorithmic details are deferred to section \ref{section_algorithms}.
+
 \subsection{Drawing a Generalized Cylinder}
 
 Like in Gingold et al., the most important primitive for modeling in ParaGem is the generalized cylinder. 
 
-The user defines a generalized cylinder by drawing a curve on the screen, which is discretized into points, which again serve as control points for a spline. Between each control point, a fixed number of \textit{spline points} are inserted by B-spline interpolation. A review of the B-spline computation is given in section \ref{section_b_spline}. The spline is visualized by drawing straight line segments between the interpolated points.
+The user defines a generalized cylinder by drawing a curve on the screen, which is discretized into points, which again serve as control points for a spline. Between each control point, a fixed number of \textit{interpolated points} are inserted by B-spline interpolation. A review of the B-spline computation is given in section \ref{section_b_spline}. The spline is visualized by drawing straight line segments between the interpolated points.
 
-This spline is the ``central spine'' of the generalized cylinder. The cylinder is created by placing circles on interpolated points on the spline perpendicular to the direction of the spline, so that the spline is perceived to go through the circles. Then a mesh is ``wrapped'' around these circles to form the mesh surrounding the spline. The end pieces are simply hemispheres.
+This spline is the ``central spine'' of the generalized cylinder. The cylinder is created by placing circles on the interpolated points on the spline perpendicular to the direction of the spline, so that the spline is perceived to go through the circles. Then a mesh is ``wrapped'' around these circles to form the surface of the generalized cylinder. The end pieces are simply hemispheres.
 
 Naturally, ParaGem should support more geometric primitives, but only the generalized cylinder is implemented. It has had priority due to its flexibility and intuitive behavior, as confirmed in \cite{gingold09}.
 
@@ -155,13 +187,15 @@ Naturally, ParaGem should support more geometric primitives, but only the genera
 
 % Talk about Laplacian Curve Editing and peeling. Exact interface
 
-After creating the initial cylinder, its spline can be altered to change its shape. Two methods of spline manipulations are currently implemented: Laplacian curve editing and peeling.
+After creating the initial cylinder, its spline can be altered to change the cylinder shape. Two methods of spline manipulations are currently implemented: Laplacian curve editing and peeling.
 
-The algorithm of Laplacian curve editing is described in detail in section \ref{section_laplacian}, and I will thus only describe the user interface here. First, the user chooses a set of points they want to manipulate (the \textit{Region of Interest}), and subsequently drags one of the points in this region to shape the curve. The Laplacian curve editing algorithm ensures that the remaining points behave in a way that preserves the shape of the curve.
+The algorithm of Laplacian curve editing is described in detail in section \ref{section_laplacian}, and I will thus only describe the user interface here. First, the user chooses a set of points they want to manipulate; the \textit{Region of Interest}, and subsequently drags one of the points in this region to shape the curve. The Laplacian curve editing algorithm ensures that the remaining points behave in a way that preserves the shape of the curve.
 
-Peeling was first described in \cite{rigid_igarashi}. It is a way of editing that is closely related to normal Laplacian curve editing. The main difference is that the Region of Interest is dynamic when using peeling. The user starts dragging any point on the curve, and as the point's distance from its original position grows, the Region of Interest grows as well.
+Peeling was first described by Igarashi et al. in \cite{rigid_igarashi}. It is a way of editing that is closely related to normal Laplacian curve editing. The main difference is that the Region of Interest is dynamic when using peeling. The user starts dragging any point on the curve, and as the point's distance from its original position grows, the Region of Interest grows as well.
 
 One subjective observation from testing out both of these methods, is that Laplacian editing generally provides more predictable behavior, while peeling is more convenient for making small changes to the spline shape.
+
+% Illustrations plzz
 
 % \subsection{Creating Annotations}
 
@@ -171,21 +205,23 @@ One subjective observation from testing out both of these methods, is that Lapla
 
 \section{Algorithms} \label{section_algorithms}
 
+Here, technical details about the B-spline interpolation and Laplacian curve editing are both explained in all their mathematical detail.
+
 \subsection{B-Spline} \label{section_b_spline}
 
 % What is B-Spline, How do we compute
 
-In ParaGem, B-splines are used as the basis for generalized cylinders, implemented with de Boor's algorithm \cite{deboor}. The naive de Boor's algorithm takes as input an ordered set of $m$ \textit{control points} $P$, representing a B-spline curve, here regarded as a function $\mathcal{C} \, : \, [a, b] \subset \mathbb{R} \rightarrow \mathbb{R}^n$, where $n \in \mathbb{Z^+}$ is the dimensionality of the curve. The interval $[a, b]$ is the \textit{domain} of the curve. To each point, there is assigned a part of this domain, so that $[a, b]$ is divided into $[t_0, t_1]$, $[t_1, t_2]$ etc. In particular, this means that $t_0 = a$ and $t_m = b$.
+In ParaGem, B-splines are used as the basis for generalized cylinders, implemented with de Boor's algorithm \cite{deboor}. The naive de Boor's algorithm takes as input an ordered set of $m$ \textit{control points} $P$. The goal is to define a parameterized curve through interpolation of the points in $P$, here regarded as a function $\mathcal{C} \, : \, [a, b] \subset \mathbb{R} \rightarrow \mathbb{R}^n$, where $n \in \mathbb{Z^+}$ is the dimensionality of the curve and the points in $P$. The interval $[a, b]$ is the \textit{domain} of the curve. The domain domain is divided into $m$ intervals, so that $[a, b]$ is divided into $[t_0, t_1]$, $[t_1, t_2]$ etc. In particular, this means that $t_0 = a$ and $t_m = b$.
 
-In addition, the algorithm takes a parameter $x \in [a, b]$. The output of De Boor's algorithm is a point $\mathbf{c} \in \mathbb{R}$ that corresponds to the input parameter $x$ on the curve $\mathcal{C}$. In other words, $\mathbf{c} = \mathcal{C}(x)$.
+In addition, de Boor's algorithm takes a parameter $x \in [a, b]$. The output of the algorithm is a point $\mathbf{c} \in \mathbb{R}^n$ that corresponds to the input parameter $x$ on the curve $\mathcal{C}$. In other words, $\mathbf{c} = \mathcal{C}(x)$.
 
-The B-spline $\mathcal{C}$ is defined as a linear combination of the points in $P$, each coefficient being a function of the input parameter $x$. Symbolically, for each point $\mathbf{p_i} \in P$, we define a function $B_{i,d}(x)$ so that
+The B-spline $\mathcal{C}$ is defined as a linear combination of the points in $P$, each coefficient being a function of the input parameter $x$. Symbolically, for each point $\mathbf{p}_i \in P$, we define a function $B_{i,d}(x)$ so that
 
 \[
 \mathcal{C}(x) = \sum_{i = 1}^mB_{i,d}(x)\mathbf{c}_i.
 \]
 
-Here, $d \in \mathbb{Z^+} + \{0\}$ is the degree of the curve, and $\mathcal{C}$ is said to be of degree $d$. We denote this explicitly, as each functions $B_{i,d}$ is defined by other functions $B_{j,d-1}$ for $j \in \{i, i + 1\}$ recursively.
+Here, $d \in \mathbb{Z^+} + \{0\}$ is the degree of the curve, and $\mathcal{C}$ is said to be of degree $d$. We denote this explicitly, as each functions $B_{i,d}$ is defined in terms of two other functions $B_{j,d-1}$ for $j \in \{i, i + 1\}$ recursively.
 
 The base case for the recursion is
 
@@ -196,13 +232,19 @@ B_{i,0}(x) = \begin{cases}
 \end{cases}
 \end{equation}
 
-The recursion rule is
+Intuitively, this would make the curve $\mathcal{C}$ a piecewise constant function, assigning each interval of the domain to its corresponding point. The recursion rule is
 
 \begin{equation} \label{eq_spline_recursion}
 B_{i,d}(x) = \dfrac{x - t_i}{t_{i + d} - t_i}B_{i,d - 1}(x) + \dfrac{t_{i + d + 1} - x}{t_{i + d + 1} - t_{i + 1}}B_{i + 1,d - 1}(x).
 \end{equation}
 
-Computing the coefficients in this manner, and subsequently compute the resulting point $\mathbf{c}$, is called de Boor's Algorithm
+Computing the coefficients in this manner, and subsequently computing the resulting point $\mathbf{c}$, is called de Boor's Algorithm.
+
+One important issue regarding B-splines is that it is not valid across all intervals $[t_i, t_{i + 1}]$, since the recursion in equation \ref{eq_spline_recursion} for $B_{i,d}(x)$ requires a coefficient $B_{i + 1, d - 1}(x)$. That means that the last $d$ 0-degree coefficients cannot have $d$-degree counterparts - so that the number of coefficients of degree $d$ is $m - d$.
+
+We also require that the sum of $B_{i,d}(x)$ must be 1 for all $x$. The definition of the coefficients suggest that some intervals, namely the intervals $[t_0, t_d]$ and $[t_{m-d},t_{m}]$, will have coefficient sums less than 1. This follows since there are less than $d + 1$ coefficients that are non-zero on these intervals, and they are all computed in just the same way as the coefficients in the middle of the curve. Thus, we are simply ``missing'' some weight to make the sum 1. Therefore, it is customary to leave $\mathcal{C}$ undefined on the $d$ first and $d$ last intervals of the curve domain.
+
+To support drawing a spline from a given start point to a given end point, I have therefore added the first and last points $d$ times on the beginning and end of $P$ respectively, as is customary in the literature to overcome this obstacle.
 
 To provide some intuition to how a B-spline behaves, we can deduce from the above equations that the first-degree ($d = 1$) curve coefficients will have the form
 
@@ -227,13 +269,7 @@ Inserting these expressions for $B_{i,d}$ in equation \ref{eq_spline_recursion},
 \mathcal{C}_1(x) = B_{i,1}(x)\mathbf{c}_i + B_{i+1,1}(x)\mathbf{c}_{i + 1} = \dfrac{(t_{i + 2} - x)\mathbf{c}_i + (x - t_1)\mathbf{c}_{i + 1}}{t_{i + 2} - t_{i + 1}} \text{ for } x \in [t_{i + 1}, t_{i + 2}].
 \]
 
-We see that this is a piece-wise linear function that simply interpolates adjacent points in order. In general, $k$-th degree curves will be piece-wise polynomials of degree $k$.
-
-One important issue regarding B-splines is that it is not valid across all intervals $[t_i, t_{i + 1}]$, since the recursion in equation \ref{eq_spline_recursion} for $B_{i,d}(x)$ requires a coefficient $B_{i + 1, d - 1}(x)$. That means that the last $d$ 0-degree coefficients cannot have $d$-degree counterparts - so that the number of coefficients of degree $d$ is $m - d$.
-
-We require that the sum of $B_{i,d}(x)$ must be 1 for all $x$. The uniform computations of the coefficients suggest that some intervals, namely the intervals $[t_0, t_d]$ and $[t_{m-d},t_{m}]$, will have coefficient sums less than 1. This follows since there are less than $d + 1$ coefficients that are non-zero on these intervals, and they are all computed in just the same way as the coefficients in the middle of the curve. Thus, we are simply ``missing'' some weight to make the sum 1. Therefore, it is customary to leave $\mathcal{C}$ undefined on the $d$ first and $d$ last intervals of the curve domain.
-
-To support drawing a spline from a given start point to a given end point, I have therefore added the first and last points $d$ times on the beginning and end of $P$ respectively, as is customary in the literature to overcome this obstacle.
+We see that this is a piece-wise linear function that simply interpolates adjacent points in order. In general, $k$-th degree splines will be piece-wise polynomials of degree $k$.
 
 \subsection{Modifications}
 
@@ -249,72 +285,76 @@ ParaGem uses a more efficient optimization, however. One rather simple observati
 B_{i,d}(x) = B_{i + 1,d}(x + 1),
 \end{equation}
 
-which means that we only need to compute the coefficients for $x \in \left[t_i, t_{i + 1}\right)$ for a
-  single half-open interval $\left[{t_i, t_{i + 1}}\right)$. The remaining coefficients are the same as the ones computed, only shifted.
+which means that we only need to compute the coefficients for a
+  single half-open interval $\left[{t_i, t_{i + 1}}\right)$, the remaining can be deduced from this.
     
-    Now, since we have chosen the $s$ points to be equidistant, we know that $x$ takes on the form $x = t_i + k * \dfrac{1}{s}, \text{ for } k \in [0..{s-1}]$, and that this is the case for every interval, so that we may make use of the equation \ref{eq_semi_periodic} to generalize coefficients of one interval to others. A final observation we can make use of, is that for each interval, there are only $d + 1$ coefficients that are non-zero on that interval. Thus, in the end, we can get away with pre-computing and storing only $(d + 1)s$ coefficients: One for each non-zero coefficient in the interval, for each $x$ in the interval.
+    Now, since we have chosen the $s$ points to be equidistant, we know that $x$ takes on the form $x = t_i + k \dfrac{1}{s}, \text{ for } k \in [0..{s-1}]$, and that this is the case for every interval, so that we may make use of equation \ref{eq_semi_periodic} to generalize coefficients of one interval to others. A final observation we can make use of, is that for each interval, there are only $d + 1$ coefficients that are non-zero on that interval. Thus, in the end, we can get away with pre-computing and storing only $s(d + 1)$ coefficients: One for each non-zero coefficient in the interval, for each $x$ in the interval.
     
 
 \subsection{Laplacian Curve Editing} \label{section_laplacian}
 
 In the following, we derive the algorithm used to compute a new spline curve after one of the points has moved, using Laplacian curve editing. Similarily to the one used by Gingold et al. \cite{gingold09}, this algorithm is based on \textit{Laplacian Surface Editing} by Sorkine et al. \cite{sorkine04}. The derivation closely follows that of Sorkine et al., but with added detail to clarify how the method is used in practice. Also, unlike Sorkine et al., I will restrict myself to two dimensions, as we are only editing a curve in the plane.
 
-Let the $V$ denote the initial positions of the control points before movement, consisting of the individual nodes positions $\mathbf{v}_i \in V$. Next, let $U \subset \mathbb{Z}$ be a set of indices refering to points we want to keep fixed, and let $\mathbf{u}_i$ be the fixed positions of $\mathbf{v}_i \in V$ for each $ i \in U$. Given the fixed positions $\mathbf{u}_i$ and the initial positions $V$, we want to compute the new positions $V'$, consisting of the individual positions $\mathbf{v}'_i \in V'$, that preserve the local structure of the curve, while also conforming to the new fixed positions.
+Let $V$ denote the initial positions of the control points before movement, consisting of the individual node positions $\mathbf{v}_i \in V$. Next, let $U \subset \mathbb{Z}$ be a set of indices refering to points we want to keep fixed, and let $\mathbf{u}_i$ be the fixed positions of $\mathbf{v}_i \in V$ for each $ i \in U$. Note that $\mathbf{u}_i$ often is identical to $\mathbf{v}_i$, but may not be, as is the case when a user drags a point to a new position. Given the fixed positions $\mathbf{u}_i$ and the initial positions $V$, we want to compute the new positions $V'$, consisting of the individual positions $\mathbf{v}'_i \in V'$, that preserve the local structure of the curve, while also conforming to the fixed positions $\mathbf{u}_i$.
 
-In practice, $V$ will be a column vector of length $2n$, $n$ being the number of points. The $n$ first elements will be the $x$-coordinates of the points $\mathbf{v}_{i_x}$, $i \in [1..n]$, and the final $n$ elements will be the $y$-coordinates. $V'$ will have a similar structure.
+In practice, $V$ will be a column vector of length $2n$, $n$ being the number of points. The $n$ first elements will be the $x$-coordinates of the points $\mathbf{v}_{i_x}$, $i \in [1..n]$, and the final $n$ elements will be the $y$-coordinates. $V'$ will have the same structure.
 
 The basic procedure for editing the curve will consist of the user choosing a set of points (the region of interest, RoI), that can be manipulated, and then dragging one of these (the ``handle'') to a new position. In this case, the set of indices for fixed points $U$ will contain the index of all points not in the RoI, in addition to the point dragged by the user. As a result, the algorithm will compute a new curve by mostly moving the points in the RoI to be consistent with the points outside the RoI and the new position of the handle.
 
-Let $\mathcal{\mathbf{v_i}}$ denote the Laplacian of vector $\mathbf{v_i}$. If we let $\mathcal{N}_i$ denote the set of neighbors to vertex $i$, whichin case of a curve  will be $i+1$ and $i - 1$, provided they exist. The Laplacian of a vertex can now be written as $\mathcal{L}(\mathbf{v_i}) = \mathbf{v_i} - \sum_{j \in \mathcal{N}_i}\mathbf{v_j} / |\mathcal{N}_i|$. We see that this transform is linear in the positions of the curve, so that we can let $L$ be the \textit{Laplacian matrix} such that $L\cdot V$ produces the vector $\Delta$ containing the Laplacian coordinates of the vertices. Denote the Laplacian transformation of $\mathbf{v}_i$ as $\mathbf{\delta}_i$.
+If we let $\mathcal{N}_i$ denote the set of neighbors to vertex $i$, which in case of a curve  will be $i+1$ and $i - 1$, provided these vertices exist. The Laplacian of a vertex can now be written as $\mathcal{L}(\mathbf{v_i}) = \mathbf{v_i} - \sum_{j \in \mathcal{N}_i}\mathbf{v_j} / |\mathcal{N}_i|$. We see that this transform is linear in the positions of the curve points, so that we can let $L$ be the \textit{Laplacian matrix} such that the product $L\cdot V$ is the vector $\Delta$ containing the Laplacian coordinates of the vertices. A fact that will be useful later, is to note that $L$ will be a sparse matrix. As a shorthand, I will denote the Laplacian transformation of $\mathbf{v}_i$ as $\mathbf{\delta}_i$.
+
+The Laplacian gives a point's position relative to its neighbors. In other words, it holds information about the local structure of the curve.
 
 We will formulate the problem as a sparse linear system, which may subsequently be solved with an off-the-shelf solver. Consider the following energy function:
 
 \[
-E_0(V') = \sum_{i = 1}^n || \mathbf{\delta}_i - \mathcal{L}(\mathbf{v'}_i) ||^2 + \sum_{i \in U} || \mathbf{v}_i - \mathbf{v'}_i||^2
+E_0(V') = \sum_{i = 1}^n || \mathbf{\delta}_i - \mathcal{L}(\mathbf{v'}_i) ||^2 + \sum_{i \in U} || \mathbf{u}_i - \mathbf{v'}_i||^2
 \]
 
-When minimizing this function, the first term will ensure that the laplacian of the new and old points stay mostly the same, and the second term will ensure that our fixed points stay close to their original positions.
+When minimizing this function, the first term will ensure that the Laplacian i.e. the local structure of the new and old points stay mostly the same, and the second term will ensure that our fixed points stay close to their intended positions. %
 
 One aspect that this formulation does not account for, is that movement of a point will disallow rotation and scaling of the Laplacian coordinates, although in general, we want to allow for those transformations to occur. 
 
 Thus, we formulate a new energy function that can account for transformations:
 
 \begin{equation}
-  E(V') = \sum_{i = 1}^n || T_i(V') \mathbf{\delta}_i - \mathbf{\delta'}_i||^2 + \sum_{i \in U} || \mathbf{v}_i - \mathbf{v'}_i||^2.
+  E(V') = \sum_{i = 1}^n || T_i(V') \mathbf{\delta}_i - \mathbf{\delta'}_i||^2 + \sum_{i \in U} || \mathbf{u}_i - \mathbf{v'}_i||^2.
   \label{eq1}
 \end{equation}
 
-We want to choose a transformation that minimizes the first term, in other words minimizes
+We want to choose a transformation that minimizes the error between the original and transformed nodes, among $\mathbf{v}_i$ and its neighbors , in other words minimizes
 
 \[
 G_i(T_i) = || T_i\mathbf{v}_i - \mathbf{v'}_i ||^2 + \sum_{j \in \mathcal{N}_i}||T_i \mathbf{v}_j - \mathbf{v'}_j||^2
 \]
 
-We will discuss how to optimize for $V'$ and $T_i$ simultaneously, but first, we must note that if we leave $T_i$ unconstrained, the minimizer of $G_i$ will be a membrane solution, a solution where all vertices between two fixed vertices will form a straight line, which will defeat our purpose of creating a new ``naturally'' curved spline.
+We will discuss how to optimize for $V'$ and $T_i$ simultaneously, but first, we must note that if we leave $T_i$ unconstrained, the minimizer of $G_i$ will be a ``membrane solution'', a solution where all vertices between two fixed vertices will form a straight line, which will defeat our purpose of trying to preserve local structure of the curve.
 
 The solution to this, as proposed by Sorkine et al., is to only allow for isotropic scaling and small rotations. They argue that anisotropic scaling may flatten a point in its normal direction, diminishing its Laplacian coordinate. Specifically, the transformation will take the following form (in two dimensions):
 
 \[
 T_i = \left[
   \begin{matrix}
-    s_i & -h_i \\
-    h_i & s_i
+    s_i & -h_i & t_{ix}\\
+    h_i & s_i & t_{iy} \\
+    0   & 0   & 1
   \end{matrix}
   \right]
 \]
 
-As we see, only small rotations (with $h_i = \sin \theta$, $\theta$ being the angle of rotation) will be describable with reasonable accuracy by this matrix, although Sorkine et al. propose ways of working around this restriction.
+% As we see, only small rotations (with $h_i = \sin \theta$, $\theta$ being the angle of rotation) will be describable with reasonable accuracy by this matrix, although Sorkine et al. propose ways of working around this restriction which I have not implemented and am not going to delve into any further.
+Here, $h_i = \sin \theta$, where $\theta$ is the angle of rotation, and $s_i = a \cos \theta$, where $a$ is the isotropic scale factor. $t_{ix}$ and $t_{iy}$ are the translations along the x- and y-axes respectively (thus we regard $\mathbf{v}_i$ as homogenous coordinates in the definition of $G_i$).
 
 An important question remains - how can we formulate an optimization problem where both $V'$ and the $T_i$'s are unknown? The solution provided by Sorkine et al. is to formulate $T_i$ as a linear function of $V'$, and encorporate the coefficients of that linear function into the original linear system. Practically, this is done in the following way:
 
-First, we formulate an optimization problem to find the coefficients $[s_i, h_i]^T$ from $G_i$. We see that if we let
+First, we formulate an optimization problem to find the coefficients $[s_i, h_i, t_{ix}, t_{iy}]^T$ from $G_i$. We see that if we let
 
 \[
 A_i = \begin{bmatrix}
-  v_{k_x} & -v_{k_y} \\
-  \vdots &  \vdots \\
-  v_{k_y} &  v_{k_x} \\
-  \vdots &  \vdots
+  v_{k_x} & -v_{k_y} & 1 & 0 \\
+  \vdots &  \vdots & \vdots & \vdots \\
+  v_{k_y} &  v_{k_x} & 0 & 1 \\
+  \vdots &  \vdots & \vdots & \vdots \\
 \end{bmatrix}
 \text{ for } k \in \{i\} + \mathcal{N}_i
 \],
@@ -322,7 +362,7 @@ A_i = \begin{bmatrix}
 the energy function $G_i$ can simply be written as
 
 \[
-||A_i[s_i, h_i]^T - \mathbf{b}_i||^2
+||A_i[s_i, h_i, t_{ix}, t_{iy}]^T - \mathbf{b}_i||^2
 \]
 
 where $\mathbf{b}_i$ is defined by
@@ -343,11 +383,13 @@ This is a least-squares problem with the closed-form solution
 \begin{bmatrix}
   s_i \\
   h_i \\
+  t_{ix} \\
+  t_{iy}
 \end{bmatrix}
 = (A_i^TA_i)^{-1}A_i^T\mathbf{b}_i
 \].
 
-We thus see that the coefficients of $T_i$ are linear in $V'$. Let $M_i = (A_i^TA_i)^{-1}A_i^T\mathbf{b}_i$. We now turn our attention back to the energy function $E(V')$. We will minimize it by formulating it as quadratic optimization problem $||BV' - \mathbf{c}||^2$, where $B$ has dimensions $(2n + 2|U|) \times 2n$ and $\mathbf{c}$ has dimensions $(2n + 2|U|) \times 1$.
+We thus see that the coefficients of $T_i$ are linear in $V'$. Let $M_i = (A_i^TA_i)^{-1}A_i^T\mathbf{b}_i$ denote this vector of coefficients of $T_i$. We now turn our attention back to the energy function $E(V')$ in equation \ref{eq1}. We will minimize it by formulating it as quadratic optimization problem $||BV' - \mathbf{c}||^2$, where $B$ has dimensions $(2n + 2|U|) \times 2n$ and $\mathbf{c}$ has dimensions $(2n + 2|U|) \times 1$.
 
 We first discuss the structure of $\mathbf{c}$. The first $2n$ elements will all be zero, as we simply wish to minimize the dot products of $V'$ with the first $2n$ rows of $B$, which we will discuss in a bit. The final $2|U|$ rows of $\mathbf{c}$ contain first the $x$-coordinates of all the fixed points, and then the $y$-coordinates, or algebraically:
 
@@ -365,9 +407,9 @@ We first discuss the structure of $\mathbf{c}$. The first $2n$ elements will all
 \text{ for } u \in U
 \]
 
-Next, we define the rows of $B$. The $2n$ first rows will describe the terms $T_i(V')\mathbf{\delta}_i - \mathbf{\delta'}_i$ of equation \ref{eq1}, separated into $x$- and $y$-components as usual. The $x$-part of the term translates into $s_i\mathbf{\delta}_{i_x} + h_i\mathbf{\delta}_{i_y} - \mathbf{\delta'}_{i_x}$. But, as we have seen, $s_i$ and $h_i$ can be written as linear functions of $V'$ using the aforementioned matrix $M_i$. Let $M'_{i_1}$ be a row vector of $2n$ elements containing the components of row 1 of $M_i$, such that each component has the same position in $M'_{i_1}$ as the corresponding component in $\mathbf{b}_i$ has in $V'$. In other words, so that $M'_{i_1}V' = s_i$. Similarily, let $M'_{i_2}$ be the vector so that $M'_{i_2}V' = h_i$.
+Next, we define the rows of $B$. The $2n$ first rows will describe the terms $T_i(V')\mathbf{\delta}_i - \mathbf{\delta'}_i$ of equation \ref{eq1}, separated into $x$- and $y$-components as usual. The $x$-part of the term translates into $s_i\mathbf{\delta}_{i_x} + h_i\mathbf{\delta}_{i_y} - \mathbf{\delta'}_{i_x}$. But, as we have seen, $s_i$ and $h_i$ can be written as linear functions of $V'$ using the aforementioned matrix $M_i$. Also, notice that the translational terms disappears, which results from Laplacian coordinates being translation-insensitive. Let $M'_{i_1}$ be a row vector of $2n$ elements containing the components of row 1 of $M_i$, such that each component has the same position in $M'_{i_1}$ as the corresponding component in $\mathbf{b}_i$ has in $V'$. In other words, so that $M'_{i_1}V' = s_i$. Similarily, let $M'_{i_2}$ be the vector so that $M'_{i_2}V' = h_i$.
 
-Having these definitions handy, we now see that $s_i\mathbf{\delta}_{i_x} + h_i\mathbf{\delta}_{i_y} - \mathbf{\delta'}_{i_x} = (\mathbf{\delta}_{i_x}M'_{i_1} + \mathbf{\delta}_{i_y}M'_{i_2} - L_i)V'$, where $L_i$ is the $i$'th row of the Laplacian, so that the left-hand factor of the last expression will be the $i$'th row of $B$ for $i \leq n$. For $i > n$, we have a corresponding expression, but for the $y$-component of the term $T_i(V') \mathbf{\delta}_i - \mathbf{\delta'}_i$.
+Having these definitions handy, we now see that $s_i\mathbf{\delta}_{i_x} + h_i\mathbf{\delta}_{i_y} - \mathbf{\delta'}_{i_x} = (\mathbf{\delta}_{i_x}M'_{i_1} + \mathbf{\delta}_{i_y}M'_{i_2} - L_i)V'$, where $L_i$ is the $i$'th row of the Laplacian, so that the left-hand factor of the last expression will be the $i$'th row of $B$ for $i \leq n$. For $n < i \leq 2n$, we have a corresponding expression, but for the $y$-component of the term $T_i(V') \mathbf{\delta}_i - \mathbf{\delta'}_i$.
 
 The final $2|U|$ rows of $B$ will have a single 1 each, on the position corresponding to component of $\mathbf{v'}_u$ for $u \in U$ in the same row of $\mathbf{c}$. In notation, row $i$ of $B$ will look like this:
 
@@ -397,13 +439,13 @@ so that, in the end, we find the new curve vertices $V'$.
 
 \subsubsection{Harder Restrictions on Fixed Points}
 
-Although the Laplacian Curve Editing approach provides an intuitive approach to editing the curve, the fixed points were found to move an unacceptable amount during editing due to having a least-squares constraint and not being completely fixed. ParaGem encounters this problem probably because the ratio of the number movable points to the number of fixed points is generally higher than in the work by Sorkine et al., so that the quadratic objective function receives less influence from the fixed points altogether.
+Although the Laplacian Curve Editing approach provides an intuitive (for the user, less so for the implementor) approach to editing the curve, the fixed points were found to move an unacceptable amount during editing due to having a least-squares constraint and not being completely fixed. ParaGem encounters this problem probably because the ratio of the number of movable points to the number of fixed points is generally higher than in the work by Sorkine et al., so that the quadratic objective function receives less influence from the fixed points altogether.
 
 This is fixed by imposing a larger weight on the fixed-point terms of the optimization objective, implemented by multiplying both the non-zero elements of the $2|U|$ bottom rows of $B$ and the last $2|U|$ elements of $\mathbf{c}$ by the same constant factor.
 
 \subsubsection{Peeling}
 
-In addition to traditional Laplacian curve editing, I have also implemented \textit{peeling}, as used in \cite{gingold09}. Peeling is closely related to Laplacian curve editing, but while the latter requires a pre-specified region of movable points (the Region of Interest), this region is dynamic in peeling. More specifically, the user starts by choosing a single point of the curve, and drags it in the desired direction. The region of interest grows along the curve in both directions as the user drags the point. The further away from the original position the point is dragged, the greater the region of interest becomes.
+In addition to traditional Laplacian curve editing, I have also implemented \textit{peeling}, as used by Gingold et al. in \cite{gingold09}. Peeling is closely related to Laplacian curve editing, but while the latter requires a pre-specified region of movable points (the Region of Interest), this region is dynamic in peeling. More specifically, the user starts by choosing a single point of the curve, and drags it in the desired direction. The region of interest grows along the curve in both directions as the user drags the point. The further away from the original position the point is dragged, the greater the region of interest becomes.
 
 Both peeling and traditional Laplacian curve editing are implemented and available for the user.
 
@@ -411,7 +453,7 @@ Both peeling and traditional Laplacian curve editing are implemented and availab
 
 % Is there much to say here? Used Rust? Used OpenGL, ImGUI, nalgebra..
 
-ParaGem was implemented using the Rust language. Visualization was done using OpenGL and the user interface was made with \texttt{imgui-rs} \cite{imguirs}. Most of the geometry calculations were done using \texttt{glm-rs} \cite{glmrs}. This project also made use of \texttt{nalgebra} \cite{nalgebra}, a general-purpose linear algebra library, used for the implementation of the sparse linear algebra algorithm of Laplacian Editing.
+ParaGem was implemented using the Rust language. Visualization was done using OpenGL and the user interface was made with \texttt{imgui-rs} \cite{imguirs}. Most of the geometry calculations were done using \texttt{glm-rs} \cite{glmrs}, but the sparse linear algebra was left to \texttt{nalgebra} \cite{nalgebra}, a general-purpose linear algebra library.
 
 
 \pagebreak
@@ -420,7 +462,7 @@ ParaGem was implemented using the Rust language. Visualization was done using Op
 
 % I go through both what is needed to finish this project, and things that could be further directions
 
-Naturally, there is a number of features that needs to be implemented to have a fully working 3D modeling program. Beyond that, there is also a large space of issues and further directions that could be interesting to adress. In the following I will first present the features originally planned for ParaGem, but time forbade me to finish. Subsequently, I will stake out possible future additions and extensions to this project.
+Naturally, there is a number of features that needs to be implemented to have a fully working 3D modeling program. Beyond that, there is also a large space of issues and further directions that could be interesting to adress. In the following I will first present the features originally planned for ParaGem, but time has forbidden me to finish. Subsequently, I will stake out possible future additions and extensions to this project.
 
 \subsection{Planned Features}
 
@@ -432,9 +474,9 @@ Naturally, there is a number of features that needs to be implemented to have a 
 
 For now, the concept of submodels is not implemented, so that every model only consists of one unorganized collection of geometric primitives. Submodels are essential for a number of other features:
 
-\textbf{Connection annotation}, letting the user attaching one submodel to another using annotations to specify various attributes, like connection points, angle and size of a connection.
+\textbf{Connection annotation}, letting the user attaching one submodel to another using annotations to specify various attributes, like connection point, angle and scale of connected submodel.
 
-\textbf{Arrangements}, letting the user attach multiple of the same submodel on a surface area of another. Here, it would be interesting to add possibility for random scattering with custom probability distribution and organized arrangements of submodules, like rows or grids. I expect such a feature to require a major implementation effort to succeed.
+\textbf{Arrangements}, letting the user attach multiple of the same submodel on a surface area of another. Here, it would be interesting to add possibility for random scattering with custom probability distribution and organized arrangements of submodules, like rows or grids. However, I expect such a feature to require a major implementation effort to succeed.
 
 \textbf{Recursion}, which would let the user create complex models with repeated structure, like plants, as discussed earlier.
 
@@ -445,7 +487,7 @@ For now, the concept of submodels is not implemented, so that every model only c
 
 The annotation-variable system still lacks multiple features to be an efficient toolkit for modelers.
 
-The number of annotation types is still at a low. Ideally, ParaGem should be enhanced with annotations that can restrict bending of geometric primitives like the generalized cylinder, and also its cross-section shape, along with length and positions. Also, as more geometric primitives are added to the mix, new annotation types specific to those may be beneficial, like the scale of different axes of an ellipsoid.
+The number of annotation types is still at a low. Ideally, ParaGem should be enhanced with annotations that can restrict bending of geometric primitives like the generalized cylinder, and also its cross-section shape, along with length and positions. Also, as more geometric primitives are added to the mix, new annotation types specific to those may be beneficial, like the scale along different axes of an ellipsoid.
 
 The variable system barely has any flesh on its back at this point. A proper user interface for defining and managing variables is a start. Naturally follows the ability to refer variables to annotations, and to allow variables to take on a wide range of values when generating a model. Other ideas include user-written math expressions that are evaluated at run-time, so that some variables can be defined in terms of others.
 
@@ -456,7 +498,7 @@ The variable system barely has any flesh on its back at this point. A proper use
 \subsubsection{Geometric Primitives}
 
 In the current implementation, the only available geometric primitive is the generalized cylinder, which, as previously mentioned, is because of its demonstrated flexibility.
-Having more primitives available to the user, however, would undeniably make the application much more useful for a variety of models. Cubes, ellipsoids, cones, and tetrahedra are natural elements to include into the collection. Furthermore, adding a two-dimensional primitive, like a quad or a triangle, might also be beneficial for a modeler.
+Having more primitives available to the user, however, would undeniably make the application much more useful for a variety of models. Cubes, ellipsoids, cones, and tetrahedra are natural elements to include into the collection. Furthermore, adding a two-dimensional primitive, like a quad or a triangle, might also be beneficial in certain situations.
 
 % More primitives (cuboids, tetrahedra, ellipsoids, sheets (?))
 
@@ -505,7 +547,7 @@ Textures containing color would naturally also be an extension in this manner. I
 
 A final notable issue of the application for creating general models, is that it strictly uses additive synthesis when creating models, meaning that creating models with holes and caveats would be very tricky to do. Model types like terrain and anything that naturally contains holes would be hard to reproduce with ParaGem.
 
-One notable work that could greatly help in this manner, is the (rather impressive, if I may say so myself) work by Schmidt et al. \cite{schmidt08}, in which a model is a geometric primitive with a hierarchical collection of edits on it. Using surface modifications like hills, holes and caveats in addition to other geometric primitives as nodes in the aforementioned model tree, could greatly extend the different types of objects that are expressible within ParaGem. Terrain modeling is an example of a field where modeling changes as erosions or hills in the landscape is much more appropriate than only repeatedly adding geometric primitives to make up to surface.
+One notable work that could greatly help in this manner, is the (rather impressive, if I may say so myself) work by Schmidt et al. \cite{schmidt08}, in which a model is a geometric primitive with a hierarchical collection of edits on it. Using surface modifications like hills, holes and caveats in addition to other geometric primitives as nodes in the aforementioned model tree, could greatly extend the different types of objects that are expressible within ParaGem. Terrain modeling is an example of a field where modeling changes as erosions or hills in the landscape is much more appropriate than only repeatedly adding geometric primitives to make up the surface.
 
 As was already mentioned in section \ref{related_work}, the work in \cite{schmidt08} is already producing a set of modification types and parameters in a tree structure, so that extending this approach to producing procedural models is not an entirely infeasible idea.
 
@@ -515,7 +557,7 @@ As was already mentioned in section \ref{related_work}, the work in \cite{schmid
 
 In this report, I have given an overview of what ParaGem is, what its intentions are, the state of its development, and features that remain to be given life.
 
-I believe the project has potential to provide interesting insights regarding production of procedural content, but ultimately lacks the effort needed to turn it into a usable application.
+I believe the project has potential to provide interesting insights regarding production of procedural content, but in its current state it lacks the implementation effort needed to turn it into a usable application.
 
 \bibliography{report}
 \bibliographystyle{plain}
