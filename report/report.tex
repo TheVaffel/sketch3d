@@ -8,7 +8,7 @@
 \usepackage{graphicx}
 \usepackage{fancyhdr}
 \usepackage{hyperref}
-\usepackage{graphicx}
+\usepackage{subfig}
 
 
 \fancyhf{}
@@ -173,13 +173,49 @@ Finally, the user can visualize variations of the model through a gallery mode. 
 
 Regrettably, only a simple subset of the features described above have been implemented. This includes creating a generalized cylinder, modifying its shape, and annotating it to modify the size of different parts of the cylinder. In the following, I will describe the workings of the interface for these features in detail, while algorithmic details are deferred to section \ref{section_algorithms}.
 
+Figure \ref{fig_overview} shows an overview of the program. The left-hand side contains a simple user interface, while the right-hand side does shows a cylinder created by the user.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=.8\textwidth]{pics/overview_cropped.png}
+  \caption{An overview user interface of ParaGem in its current state. The user interface is found on the left-hand side, and a generalized cylinder made from a hand-drawn curve. }
+  \label{fig_overview}
+\end{figure}
+
+\subsection{Visualization}
+
+First a note on the rendering technique used to visualize the models:
+
+The cylinders are created as 3D meshes and rendered with a toon-like technique so that only their outlines are visible. The technique makes use of a traditional geometry representation with a vertex buffer and an accompanying index buffer describing its triangles, but also an index buffer describing all its edges. In addition, we have an index buffer incorporating ``sharp'' edges, edges whose neighboring faces have a smaller angle in-between each other than some fixed constant.
+
+When rendering, we first render all the lines of the object, creating a wireframe visualization. Subsequently, we render the triangles, colored white and slightly shifted towards the camera, so that it covers the lines interior to the object's silhouette. Finally, we render the sharp edges on top of the framebuffer again, making sure that important detail within the silhouette is preserved. In the case of generalized cylinders, we don't have any sharp details on the surface we would like to emphasize, so this last step could have been dropped in the program's current state.
+
+The perspective matrix is an orthographic projection matrix, so that rendering two identical objects in the same position, only one a slightly closer than the other, will result in the nearest object completely covering the other. The exception is the outlines of a wireframe drawing, which is what we exploit in the visualization here. 
+
 \subsection{Drawing a Generalized Cylinder}
 
 Like in Gingold et al., the most important primitive for modeling in ParaGem is the generalized cylinder. 
 
-The user defines a generalized cylinder by drawing a curve on the screen, which is discretized into points, which again serve as control points for a spline. Between each control point, a fixed number of \textit{interpolated points} are inserted by B-spline interpolation. A review of the B-spline computation is given in section \ref{section_b_spline}. The spline is visualized by drawing straight line segments between the interpolated points.
+The user defines a generalized cylinder by drawing a curve on the screen, which is discretized into points, which again serve as control points for a spline. Between each control point, a fixed number of \textit{interpolated points} are inserted by B-spline interpolation. A review of the B-spline computation is given in section \ref{section_b_spline}. The spline is visualized by drawing straight line segments between the interpolated points. A picture illustrating the spline interpolation is given in figure \ref{fig_spline}.
 
-This spline is the ``central spine'' of the generalized cylinder. The cylinder is created by placing circles on the interpolated points on the spline perpendicular to the direction of the spline, so that the spline is perceived to go through the circles. Then a mesh is ``wrapped'' around these circles to form the surface of the generalized cylinder. The end pieces are simply hemispheres.
+\begin{figure}
+  \centering
+  \includegraphics[width=.5\textwidth]{pics/interpolated_spline_croppednzoomed.png}
+  \caption{A zoomed-in picture of spline interpolation as used in ParaGem. The black dots are control points, the thin lines are the outer shell of the cylinder. The size of the control points have been decreased for clarity. Notice that the spline does not necessarily intersect the control points. }
+  \label{fig_spline}
+\end{figure}
+
+This spline is the ``central spine'' of the generalized cylinder. The cylinder is created by placing circles on the interpolated points on the spline perpendicular to the direction of the spline, so that the spline is perceived to go through the circles. Then a mesh is ``wrapped'' around these circles to form the surface of the generalized cylinder. The end pieces are simply hemispheres. Figure \ref{fig_cylinder_example} shows an example of a spline turned into a cylinder.
+
+\begin{figure}
+  \centering
+  \subfloat{{\includegraphics[width=5cm]{pics/bare_spline_cropped.png}}}
+  \qquad
+  \subfloat{{\includegraphics[width=5cm]{pics/created_cylinder_cropped.png}}}
+
+  \caption{Left: The spline drawn by the user. Right: The spline transformed into a cylinder. The dots are the control points of the spline, which are used for editing the cylinder.}
+  \label{fig_cylinder_example}
+\end{figure}
 
 Naturally, ParaGem should support more geometric primitives, but only the generalized cylinder is implemented. It has had priority due to its flexibility and intuitive behavior, as confirmed in \cite{gingold09}.
 
@@ -189,19 +225,55 @@ Naturally, ParaGem should support more geometric primitives, but only the genera
 
 After creating the initial cylinder, its spline can be altered to change the cylinder shape. Two methods of spline manipulations are currently implemented: Laplacian curve editing and peeling.
 
-The algorithm of Laplacian curve editing is described in detail in section \ref{section_laplacian}, and I will thus only describe the user interface here. First, the user chooses a set of points they want to manipulate; the \textit{Region of Interest}, and subsequently drags one of the points in this region to shape the curve. The Laplacian curve editing algorithm ensures that the remaining points behave in a way that preserves the shape of the curve.
+The algorithm of Laplacian curve editing is described in detail in section \ref{section_laplacian}, and I will thus only describe the user interface here. First, the user chooses a set of points they want to manipulate; the \textit{Region of Interest}, and subsequently drags one of the points in this region to shape the curve. The Laplacian curve editing algorithm ensures that the remaining points behave in a way that preserves the shape of the curve. An illustration of Laplacian editing is shown in figure \ref{fig_laplacian}.
 
-Peeling was first described by Igarashi et al. in \cite{rigid_igarashi}. It is a way of editing that is closely related to normal Laplacian curve editing. The main difference is that the Region of Interest is dynamic when using peeling. The user starts dragging any point on the curve, and as the point's distance from its original position grows, the Region of Interest grows as well.
+\begin{figure}
+  \centering
+  \subfloat{{\includegraphics[width=5cm]{pics/pre_laplacian.png}}}
+  \qquad
+  \subfloat{{\includegraphics[width=5cm]{pics/post_laplacian.png}}}
+
+  \caption{A demonstration of the Laplacian editing technique. The right image shows the left image after the outer-most control point has been retracted a bit to ``squish'' the curve together. The red control points are the one belonging to the Region of Interest. Notice how the local structure of the curve is preserved to a degree. The thin lines within the cylinder are merely visualization artifacts due to the cylinder self-intersecting, and should be ignored.}
+  \label{fig_laplacian}
+\end{figure}
+
+
+Peeling was first described by Igarashi et al. in \cite{rigid_igarashi}. It is a way of editing that is closely related to normal Laplacian curve editing. The main difference is that the Region of Interest is dynamic when using peeling. The user starts dragging any point on the curve, and as the point's distance from its original position grows, the Region of Interest grows as well. An example of the use of peeling is shown in figure \ref{fig_peeling}.
+
+\begin{figure}
+  \centering
+  \subfloat{{\includegraphics[width=5cm]{pics/pre_peeling_cropped.png}}}
+  \qquad
+  \subfloat{{\includegraphics[width=5cm]{pics/peeling_dragging_cropped.png}}}
+
+  \caption{A demonstration of the peeling technique. The left picture is the spline before manipulation. The right picture shows the spline after the bottom-most point (in the right picture) has been dragged to its new position. Notice that some of the structure of the original spline has been preserved.}
+  \label{fig_peeling}
+\end{figure}
 
 One subjective observation from testing out both of these methods, is that Laplacian editing generally provides more predictable behavior, while peeling is more convenient for making small changes to the spline shape.
 
-% Illustrations plzz
+\subsection{Creating Annotations}
 
-% \subsection{Creating Annotations}
+The annotation system is still very simple, and only supports modifying the radius on different parts of a generalized cylinder. When a generalized cylinder is made, the control points in each end already have radius annotations associated with them. The radi of the circles in-between the end-point, or in general, between a pair of annotated control points, will be linearly interpolated between the radi specified on the closest annotation on each side.
+
+The user creates such a ``radius annotation'' by going to annotation mode, clicking on any control point of the cylinder spline and clicking a button for adding a size annotation. Alternatively, the user can click on a control point which already has an annotation associated  with it, and can manipulate its value by a simple slider interface. Figure \ref{fig_annotate} shows a simple example of a cylinder with multiple annotations associated with it.
+
+This is one of the features that have gotten the least polish, and thus its geometry appears a bit uneven for unknown reasons, but I hope the provided figure communicates the general idea.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.8\textwidth]{pics/size_annotations_cropped.png}
+
+  \caption{An example of a cylinder with four of its control points annotated with size. The blue dots are rendered underneath each control point that is annotated. }
+  \label{fig_annotate}
+  
+\end{figure}
+
 
 % Should probably implement this before saying I implemented it
 
-\pagebreak
+% \pagebreak
+\clearpage
 
 \section{Algorithms} \label{section_algorithms}
 
@@ -455,10 +527,11 @@ Both peeling and traditional Laplacian curve editing are implemented and availab
 
 ParaGem was implemented using the Rust language. Visualization was done using OpenGL and the user interface was made with \texttt{imgui-rs} \cite{imguirs}. Most of the geometry calculations were done using \texttt{glm-rs} \cite{glmrs}, but the sparse linear algebra was left to \texttt{nalgebra} \cite{nalgebra}, a general-purpose linear algebra library.
 
+The source code for the project can be found in \cite{paragem}.
 
 \pagebreak
 
-\section{Future Work and Conclusion} \label{section_future_work}
+\section{Future Work and Conclusions} \label{section_future_work}
 
 % I go through both what is needed to finish this project, and things that could be further directions
 
