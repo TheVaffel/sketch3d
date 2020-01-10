@@ -188,8 +188,8 @@ impl SplineState {
 		for j in 0..(SPLINE_DEGREE+1) {
 		    pp = pp + lookup_pad(&self.control_points, curr_point + j) *
 			SPLINE_COEFFICIENTS.coefficients[b_ind][j];
-		    cp = cp + lookup_pad(&self.point_colors, curr_point + j) *
-			SPLINE_COEFFICIENTS.coefficients[b_ind][j];
+		    // cp = cp + lookup_pad(&self.point_colors, curr_point + j) *
+		    // SPLINE_COEFFICIENTS.coefficients[b_ind][j];
 		}
 
 		cp[3] = 1.0;

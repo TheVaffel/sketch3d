@@ -28,11 +28,11 @@ pub fn run_gui(session: &mut program::Session,
     // ui.show_demo_window(&mut true);
 
     
-    Window::new(im_str!("Hello"))
+    Window::new(im_str!("Menu"))
 	.size([300.0, 300.0], Condition::FirstUseEver)
 	.position([0.0, 0.0], Condition::Always)
 	.build(&ui, || {
-	    ui.text(im_str!("sketch3d - Main menu"));
+	    ui.text(im_str!("ParaGem - Main menu"));
 	    ui.separator();
 	    ui.separator();
 	    
@@ -94,32 +94,62 @@ pub fn run_gui(session: &mut program::Session,
 		    ui.radio_button(im_str!("On"), &mut gui_state.using_peeling, true);
 		    ui.radio_button(im_str!("Off"), &mut gui_state.using_peeling, false);
 		},
-		program::ProgramState::Annotate(_) => {
+		program::ProgramState::Annotate(ref annotation_state) => {
 		    ui.text(im_str!("You go annotate!"));
-		    for annl in session.annotations.iter_mut() {
+		    /* for annl in session.annotations.iter_mut() {
 			for ann in annl.iter_mut() {
 			    
-			    println!("In inner annotations iteration");
 			    let mut f = ann.get_size();
-			    ui.drag_float(im_str!("Some size annotation"), &mut f)
-                                .min(0.05).max(4.0).speed(0.1).build();
+			    ui.input_float(im_str!("Some size annotation"), &mut f)
+                            // .min(0.05).max(4.0).speed(0.1)
+                                .build();
 			    ann.set_size(f);
 			}
-		    }
+		} */
+                    if annotation_state.curr_cylinder_index >= 0 {
+                        let mut already = -1 as i32;
+                        for anni in 0..session.annotations[annotation_state.curr_cylinder_index as usize].len() {
+                            let ann = &session.annotations[annotation_state.curr_cylinder_index as usize][anni];
+                            let i = ann.as_ref().get_render_index();
+                            if annotation_state.curr_render_index == i as i32 {
+                                already = anni as i32;
+                            }
+                        }
+
+                        if already >= 0 {
+                            let mut f = session.annotations[annotation_state.curr_cylinder_index as usize][already as usize].as_ref().get_size();
+
+                        ui.drag_float(im_str!("Some size annotation"), &mut f)
+                            .min(0.05).max(2.0).speed(0.03)
+                            .build();
+                        
+                        session.annotations[annotation_state.curr_cylinder_index as usize][already as usize].as_mut().set_size(f);
+                        } else {
+                            if ui.button(im_str!("Create size annotation"), [200.0, 30.0]) {
+                                let ann = annotation::SizeAnnotation { size: 1.0,
+                                                                       position: glm::vec3 (0.0, 0.0, 0.0),
+                                                                       index: annotation_state.curr_render_index as usize };
+                                session.annotations[annotation_state.curr_cylinder_index as usize].push(Box::<annotation::SizeAnnotation>::from(ann));
+                            }
+                        }
+                    }
+                    
+                    /* if annotation_state.curr_cylinder_index >= 0 {
+                        let mut f = session.annotations[annotation_state.curr_cylinder_index as usize][annotation_state.curr_render_index as usize].as_ref().get_size();
+
+                        ui.drag_float(im_str!("Some size annotation"), &mut f)
+                            .min(0.05).max(2.0).speed(0.03)
+                            .build();
+                        
+                        session.annotations[annotation_state.curr_cylinder_index as usize][annotation_state.curr_render_index as usize].as_mut().set_size(f);
+                    } */
+
 		},
 		program::ProgramState::Draw => {
 		    ui.text(im_str!("Do some drawing already!"));
 		}
 	    }
 	    
-	    
-	    let mouse_pos = ui.io().mouse_pos;
-
-	    ui.separator();
-	    ui.text(format!(
-		"Mouse Position: ({:.1},{:.1})",
-		mouse_pos[0], mouse_pos[1]
-	    ));
 	});
 
     gui_state.used_mouse = ui.io().want_capture_mouse;

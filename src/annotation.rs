@@ -87,9 +87,8 @@ impl Annotation for SizeAnnotation {
 }
 
 pub struct AnnotationState {
-    curr_cylinder_index: i32,
-    curr_annotation_index: i32,
-    
+    pub curr_cylinder_index: i32,
+    pub curr_render_index: i32,
     
     points_vbo: gl::types::GLuint,
     colors_vbo: gl::types::GLuint,
@@ -139,7 +138,7 @@ impl AnnotationState {
 	
 	let ass = AnnotationState {
 	    curr_cylinder_index: -1,
-	    curr_annotation_index: -1,
+	    curr_render_index: -1,
 	    points_vbo,
 	    colors_vbo,
 	    visual_vao
@@ -159,27 +158,40 @@ pub fn handle_annotation(proj: &glm::Mat4, input_state: &program::InputState,
     let mut closest_ind = -1;
     let mut cind = -1 as i32;
 
-    for ian in 0..session.annotations.len() {
-	let annotation_points : Vec<glm::Vec3> = session.annotations[ian].iter().
-	    map(|x : &Box<dyn Annotation> | x.as_ref().get_world_position()).collect();
+    if input_state.mouse_state.button1_pressed {
+        for ian in 0..session.annotations.len() {
+	    /* let annotation_points : Vec<glm::Vec3> = session.annotations[ian].iter().
+	        map(|x : &Box<dyn Annotation> | x.as_ref().get_world_position()).collect();
+             */
 
-	let ind = utils::select_point(input_state.mouse_state.pos,
-				      &annotation_points,
-				      proj, closest);
+            let spoints : &Vec<glm::Vec3> = &session.cylinders[ian].spline.control_points;
+	    let ind = utils::select_point(input_state.mouse_state.pos,
+				          // &annotation_points,
+                                          spoints,
+				          proj, closest);
 
-	if ind >= 0 {
-	    closest_ind = ind;
-	    closest = utils::length_mouse_pos_to_point(input_state.mouse_state.pos,
-						       annotation_points[ind as usize],
-						       proj);
-	    cind = ian as i32;
-	}
-    }
+	    if ind >= 0 {
+	        closest_ind = ind;
+	        closest = utils::length_mouse_pos_to_point(input_state.mouse_state.pos,
+						           // annotation_points[ind as usize],
+                                                           spoints[ind as usize],
+						           proj);
+                for anni in 0..session.annotations.len() {
+                    for a in &session.annotations[anni] {
+                        
+                    }
+                }
 
-    if closest_ind >= 0 {
-	annotation_state.curr_cylinder_index = cind;
-	annotation_state.curr_annotation_index = closest_ind;
-    }
+	        cind = ian as i32;
+	    }
+        }
+
+        if closest_ind >= 0 {
+	    annotation_state.curr_cylinder_index = cind;
+	    // annotation_state.curr_annotation_index = closest_ind;
+            annotation_state.curr_render_index = closest_ind;
+        }
+    }    
 
     for cyl in 0..session.cylinders.len() {
         session.cylinders[cyl].update_mesh(&session.annotations[cyl]);
@@ -253,11 +265,11 @@ pub fn update_gpu_annotation_state(annotation_state: &AnnotationState,
 
 	    let col =
 		if annotation_state.curr_cylinder_index == j as i32 &&
-		annotation_state.curr_annotation_index == anni as i32 {
+		annotation_state.curr_render_index == anni as i32 { // This gets all wrong, I'm sorry
 		    glm::vec4(1.0, 0.0, 0.0, 1.0)
 		} else {
 		    annotations[anni].get_color()
-		};
+		}; 
 	    
 	    colors.push(col);
 	}
@@ -332,7 +344,7 @@ pub fn push_default_annotations(cylinder_num: usize,
     annotations[ll].push(Box::<SizeAnnotation>::from( SizeAnnotation { size: 1.0,
 								       position: glm::vec3(0.0, 0.0, 0.0),
 								       index: 0 }));
-    annotations[ll].push(Box::<SizeAnnotation>::from( SizeAnnotation { size: 1.0,
+    annotations[ll].push(Box::<SizeAnnotation>::from( SizeAnnotation { size: 2.0,
 								       position: glm::vec3(0.0, 0.0, 0.0),
 								       index: num_points - 1}));
 						 

@@ -14,7 +14,8 @@ lazy_static = "1.4.0"
 nalgebra = "0.19.0"
 generic-array = "0.13.2"
 
-imgui-glfw-rs = { path = "/home/ahomez/h/haakofl/Documents/imgui-glfw-rs" }
+imgui-glfw-rs = { path = "/home/haakon/BigProjects/imgui-glfw-rs" }
+# imgui-glfw-rs = { path = "/home/ahomez/h/haakofl/Documents/imgui-glfw-rs" }
 
 [features]
 

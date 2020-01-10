@@ -100,7 +100,7 @@ pub fn draw_cylinder(generalized_cylinder : &GeneralizedCylinder,
 	    gl::LINES,
 	    generalized_cylinder.line_object.indices.len() as gl::types::GLsizei,
 	    gl::UNSIGNED_INT,
-	    std::ptr::null());
+	    std::ptr::null()); 
 
 
 	gl::Disable(gl::DEPTH_TEST);
@@ -254,7 +254,8 @@ pub fn get_cylinder_values(radius : f32,
 
     let mut curr_ann = 0;
 
-    
+
+    println!("Beg");
     for i in 0..(len_resolution + 1) {
 	while i > avv[curr_ann].0 {
 	    curr_ann += 1;
@@ -266,8 +267,12 @@ pub fn get_cylinder_values(radius : f32,
 	} else {
 	    (avv[curr_ann - 1].1 * (avv[curr_ann].0 - i) as f32 +
 	     avv[curr_ann].1 * (i - avv[curr_ann - 1].0) as f32) /
-		(avv[curr_ann].0 - avv[curr_ann - 1].0) as f32
+	    (avv[curr_ann].0 - avv[curr_ann - 1].0) as f32 
+            // avv[curr_ann].1
+            // 1.5
 	};
+
+        println!("Size: {}", radius);
 	
 	let ai = if i == len_resolution { i - 1 } else { i };
 	let z_dir = glm::builtin::normalize(glm::vec3(spline_state.spline_points[ai + 1].x,
